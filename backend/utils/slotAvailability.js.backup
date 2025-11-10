@@ -1,0 +1,255 @@
+const { Schedule, Appointment, AppointmentHold, Doctor, Service } = require('../models');
+const { Op } = require('sequelize');
+
+// Mexican holidays (format: MM-DD)
+const MEXICAN_HOLIDAYS = [
+  '01-01', // New Year
+  '02-05', // Constitution Day
+  '03-21', // Benito Juárez Birthday
+  '05-01', // Labor Day
+  '09-16', // Independence Day
+  '11-20', // Revolution Day
+  '12-25', // Christmas
+  '12-31'  // New Year's Eve
+];
+
+/**
+ * Check if a date is a Mexican holiday
+ */
+const isHoliday = (date) => {
+  const dateStr = new Date(date);
+  const month = String(dateStr.getMonth() + 1).padStart(2, '0');
+  const day = String(dateStr.getDate()).padStart(2, '0');
+  const checkDate = `${month}-${day}`;
+
+  return MEXICAN_HOLIDAYS.includes(checkDate);
+};
+
+/**
+ * Get available time slots for a specific service and date
+ * @param {number} serviceId - Service ID
+ * @param {string} appointmentDate - Date in YYYY-MM-DD format
+ * @returns {Array} Array of time slot objects with status
+ */
+const getAvailableSlots = async (serviceId, appointmentDate) => {
+  try {
+    // Check if date is a holiday
+    if (isHoliday(appointmentDate)) {
+      return {
+        success: false,
+        message: 'La fecha seleccionada es un día festivo. La clínica está cerrada.',
+        slots: []
+      };
+    }
+
+    // Get day of week (1=Monday, 6=Saturday, 0=Sunday)
+    const date = new Date(appointmentDate);
+    const dayOfWeek = date.getDay();
+
+    // Check if Sunday
+    if (dayOfWeek === 0) {
+      return {
+        success: false,
+        message: 'La clínica está cerrada los domingos.',
+        slots: []
+      };
+    }
+
+    // Find service and associated doctor
+    const service = await Service.findByPk(serviceId, {
+      include: [{
+        model: Schedule,
+        where: { dayOfWeek, isActive: true },
+        required: false,
+        include: [{
+          model: Doctor,
+          required: true
+        }]
+      }]
+    });
+
+    if (!service || !service.Schedules || service.Schedules.length === 0) {
+      return {
+        success: false,
+        message: 'No hay horarios disponibles para este servicio en el día seleccionado.',
+        slots: []
+      };
+    }
+
+    // Get all schedule templates for this day
+    const allSlots = [];
+
+    for (const schedule of service.Schedules) {
+      const doctorId = schedule.Doctor.id;
+      const slots = generateSlotsFromSchedule(schedule);
+
+      // Get booked appointments for this doctor/date
+      const bookedAppointments = await Appointment.findAll({
+        where: {
+          doctorId,
+          appointmentDate,
+          status: {
+            [Op.in]: ['pending', 'confirmed']
+          }
+        },
+        attributes: ['appointmentTime']
+      });
+
+      const bookedTimes = bookedAppointments.map(apt => apt.appointmentTime);
+
+      // Get active holds for this doctor/date
+      const activeHolds = await AppointmentHold.findAll({
+        where: {
+          doctorId,
+          appointmentDate,
+          expiresAt: {
+            [Op.gt]: new Date() // Not expired
+          }
+        },
+        attributes: ['appointmentTime']
+      });
+
+      const heldTimes = activeHolds.map(hold => hold.appointmentTime);
+
+      // Mark slots as available/booked/held
+      slots.forEach(slot => {
+        const timeStr = slot.time;
+
+        if (bookedTimes.includes(timeStr)) {
+          slot.status = 'booked';
+        } else if (heldTimes.includes(timeStr)) {
+          slot.status = 'held';
+        } else if (isPastTime(appointmentDate, timeStr)) {
+          slot.status = 'past';
+        } else {
+          slot.status = 'available';
+        }
+
+        slot.doctorId = doctorId;
+        slot.doctorName = schedule.Doctor.fullName;
+      });
+
+      allSlots.push(...slots);
+    }
+
+    // Filter out past, booked, and held slots for the response
+    const availableSlots = allSlots.filter(slot => slot.status === 'available');
+
+    return {
+      success: true,
+      slots: availableSlots,
+      allSlots // Include all for admin view if needed
+    };
+
+  } catch (error) {
+    console.error('Error getting available slots:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate time slots from a schedule template
+ */
+const generateSlotsFromSchedule = (schedule) => {
+  const slots = [];
+  const { startTime, endTime, slotDuration } = schedule;
+
+  // Parse times (format: "09:00:00")
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+
+  let currentHour = startHour;
+  let currentMinute = startMinute;
+
+  while (
+    currentHour < endHour ||
+    (currentHour === endHour && currentMinute < endMinute)
+  ) {
+    const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}:00`;
+
+    slots.push({
+      time: timeStr,
+      displayTime: `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`,
+      status: 'unknown' // Will be determined later
+    });
+
+    // Add slot duration (in minutes)
+    currentMinute += slotDuration;
+    if (currentMinute >= 60) {
+      currentHour += Math.floor(currentMinute / 60);
+      currentMinute = currentMinute % 60;
+    }
+  }
+
+  return slots;
+};
+
+/**
+ * Check if a time slot is in the past
+ */
+const isPastTime = (appointmentDate, appointmentTime) => {
+  const now = new Date();
+  const [hours, minutes] = appointmentTime.split(':').map(Number);
+
+  const slotDateTime = new Date(appointmentDate);
+  slotDateTime.setHours(hours, minutes, 0, 0);
+
+  return slotDateTime < now;
+};
+
+/**
+ * Check if a slot is available (not booked, not held, not past)
+ */
+const isSlotAvailable = async (serviceId, doctorId, appointmentDate, appointmentTime) => {
+  try {
+    // Check if time is in the past
+    if (isPastTime(appointmentDate, appointmentTime)) {
+      return false;
+    }
+
+    // Check for existing appointments
+    const existingAppointment = await Appointment.findOne({
+      where: {
+        doctorId,
+        appointmentDate,
+        appointmentTime,
+        status: {
+          [Op.in]: ['pending', 'confirmed']
+        }
+      }
+    });
+
+    if (existingAppointment) {
+      return false;
+    }
+
+    // Check for active holds
+    const activeHold = await AppointmentHold.findOne({
+      where: {
+        doctorId,
+        appointmentDate,
+        appointmentTime,
+        expiresAt: {
+          [Op.gt]: new Date()
+        }
+      }
+    });
+
+    if (activeHold) {
+      return false;
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error('Error checking slot availability:', error);
+    return false;
+  }
+};
+
+module.exports = {
+  getAvailableSlots,
+  isSlotAvailable,
+  isHoliday,
+  isPastTime
+};
