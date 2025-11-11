@@ -28,10 +28,15 @@ const app = express();
 // ===================================
 
 // CORS configuration - Allow requests from frontend
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [
+      process.env.FRONTEND_DASHBOARD_URL,
+      process.env.FRONTEND_BOOKING_URL
+    ].filter(Boolean) // Remove undefined values
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5174'];
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://your-frontend-url.vercel.app', 'https://your-public-booking-url.vercel.app']
-    : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:5174'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
