@@ -1,6 +1,8 @@
 const { Sequelize } = require('sequelize');
+// Only load .env file in development
+if (process.env.NODE_ENV !== 'production') {
 require('dotenv').config();
-
+}
 // Create Sequelize instance
 const sequelize = new Sequelize(
   process.env.DB_NAME,
