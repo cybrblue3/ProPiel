@@ -19,6 +19,7 @@ const doctorRoutes = require('./routes/doctorRoutes');
 const medicalCaseRoutes = require('./routes/medicalCaseRoutes');
 const prescriptionRoutes = require('./routes/prescriptionRoutes');
 const photoRoutes = require('./routes/photoRoutes');
+const setupRoutes = require('./routes/setupRoutes');
 
 // Initialize Express app
 const app = express();
@@ -80,6 +81,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/medical-cases', medicalCaseRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/setup', setupRoutes); // ONE-TIME setup endpoint
 
 // 404 handler
 app.use((req, res) => {
