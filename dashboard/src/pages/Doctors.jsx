@@ -45,6 +45,18 @@ const getAuthHeader = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  // Parse date as local time to avoid timezone shift
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed
+  return date.toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
 const Doctors = () => {
   const [doctors, setDoctors] = useState([]);
   const [filteredDoctors, setFilteredDoctors] = useState([]);
@@ -539,7 +551,7 @@ const Doctors = () => {
                           {selectedDoctor.appointments.map((apt) => (
                             <TableRow key={apt.id}>
                               <TableCell>
-                                {new Date(apt.appointmentDate).toLocaleDateString('es-ES')} {apt.appointmentTime}
+                                {formatDate(apt.appointmentDate)} {apt.appointmentTime}
                               </TableCell>
                               <TableCell>{apt.Patient?.fullName || 'N/A'}</TableCell>
                               <TableCell>{apt.Service?.name || 'N/A'}</TableCell>

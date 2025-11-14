@@ -45,6 +45,18 @@ const getAuthHeader = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  // Parse date as local time to avoid timezone shift
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed
+  return date.toLocaleDateString('es-MX', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
 function MedicalRecords() {
   const { user } = useAuth();
   const [cases, setCases] = useState([]);
@@ -627,7 +639,7 @@ function MedicalRecords() {
                     />
                   </TableCell>
                   <TableCell>
-                    {new Date(medicalCase.startDate).toLocaleDateString('es-MX')}
+                    {formatDate(medicalCase.startDate)}
                   </TableCell>
                   <TableCell align="center">
                     <IconButton
@@ -696,7 +708,7 @@ function MedicalRecords() {
                       </Typography>
                       <Typography variant="body1">
                         {selectedCase.Patient?.birthDate
-                          ? new Date(selectedCase.Patient.birthDate).toLocaleDateString('es-MX')
+                          ? formatDate(selectedCase.Patient.birthDate)
                           : 'N/A'}
                       </Typography>
                     </Grid>
@@ -760,7 +772,7 @@ function MedicalRecords() {
                         Fecha de Inicio
                       </Typography>
                       <Typography variant="body1">
-                        {new Date(selectedCase.startDate).toLocaleDateString('es-MX')}
+                        {formatDate(selectedCase.startDate)}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
@@ -769,7 +781,7 @@ function MedicalRecords() {
                       </Typography>
                       <Typography variant="body1">
                         {selectedCase.endDate
-                          ? new Date(selectedCase.endDate).toLocaleDateString('es-MX')
+                          ? formatDate(selectedCase.endDate)
                           : 'En curso'}
                       </Typography>
                     </Grid>
@@ -884,7 +896,7 @@ function MedicalRecords() {
                           )}
                           <Grid item xs={12} sm={6}>
                             <Typography variant="body2" color="text.secondary">
-                              Fecha: {new Date(prescription.prescribedDate).toLocaleDateString('es-MX')}
+                              Fecha: {formatDate(prescription.prescribedDate)}
                             </Typography>
                           </Grid>
                           {prescription.instructions && (
@@ -897,7 +909,7 @@ function MedicalRecords() {
                           {prescription.Appointment && (
                             <Grid item xs={12}>
                               <Typography variant="body2" color="text.secondary">
-                                Cita: {new Date(prescription.Appointment.appointmentDate).toLocaleDateString('es-MX')} - {prescription.Appointment.appointmentTime}
+                                Cita: {formatDate(prescription.Appointment.appointmentDate)} - {prescription.Appointment.appointmentTime}
                               </Typography>
                             </Grid>
                           )}
@@ -1014,7 +1026,7 @@ function MedicalRecords() {
                                 </IconButton>
                               </Box>
                               <Typography variant="caption" color="text.secondary" display="block">
-                                {new Date(photo.uploadDate).toLocaleDateString('es-MX')}
+                                {formatDate(photo.uploadDate)}
                               </Typography>
                               {photo.description && (
                                 <Typography variant="body2" sx={{ mt: 1 }}>

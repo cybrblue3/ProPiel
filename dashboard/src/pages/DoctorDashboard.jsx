@@ -42,6 +42,18 @@ const getAuthHeader = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  // Parse date as local time to avoid timezone shift
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed
+  return date.toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
 const DoctorDashboard = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
@@ -401,7 +413,7 @@ const DoctorDashboard = () => {
                   Cita Actual
                 </Typography>
                 <Typography><strong>Servicio:</strong> {selectedAppointment.Service?.name}</Typography>
-                <Typography><strong>Fecha:</strong> {new Date(selectedAppointment.appointmentDate).toLocaleDateString('es-ES')}</Typography>
+                <Typography><strong>Fecha:</strong> {formatDate(selectedAppointment.appointmentDate)}</Typography>
                 <Typography><strong>Hora:</strong> {selectedAppointment.appointmentTime}</Typography>
                 {selectedAppointment.notes && (
                   <Typography><strong>Motivo:</strong> {selectedAppointment.notes}</Typography>
