@@ -523,7 +523,7 @@ const Appointments = () => {
                   >
                     <Box
                       component="img"
-                      src={`http://localhost:5000/uploads/${selectedAppointment.PaymentProof.filepath.split('uploads\\').pop().split('uploads/').pop().replace(/\\/g, '/')}`}
+                      src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${selectedAppointment.PaymentProof.filepath.split('uploads\\').pop().split('uploads/').pop().replace(/\\/g, '/')}`}
                       alt="Comprobante de pago"
                       sx={{
                         maxWidth: '100%',
