@@ -266,7 +266,7 @@ const Patients = () => {
                   <TableCell>Teléfono</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Edad</TableCell>
-                  <TableCell>Género</TableCell>
+                  <TableCell>Sexo</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
               </TableHead>
@@ -389,7 +389,7 @@ const Patients = () => {
                           <strong>Edad:</strong> {calculateAge(selectedPatient.birthDate)} años
                         </Typography>
                         <Typography variant="body2">
-                          <strong>Género:</strong> {selectedPatient.gender === 'male' ? 'Masculino' : 'Femenino'}
+                          <strong>Sexo:</strong> {selectedPatient.gender === 'male' ? 'Masculino' : 'Femenino'}
                         </Typography>
                       </Grid>
                     </Grid>
@@ -527,12 +527,11 @@ const Patients = () => {
               <TextField
                 select
                 fullWidth
-                label="Género"
+                label="Sexo"
                 value={editForm.gender}
                 onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
                 SelectProps={{ native: true }}
               >
-                <option value="">Seleccionar</option>
                 <option value="male">Masculino</option>
                 <option value="female">Femenino</option>
               </TextField>

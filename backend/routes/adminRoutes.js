@@ -102,7 +102,7 @@ router.get('/appointments/pending', async (req, res) => {
       include: [
         {
           model: Patient,
-          attributes: ['id', 'fullName', 'phone', 'email', 'birthDate']
+          attributes: ['id', 'fullName', 'phone', 'email', 'birthDate', 'gender']
         },
         {
           model: Doctor,

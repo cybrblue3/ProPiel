@@ -42,6 +42,25 @@ const PendingAppointments = () => {
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return 'N/A';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const getGenderLabel = (gender) => {
+    if (gender === 'male') return 'Masculino';
+    if (gender === 'female') return 'Femenino';
+    if (gender === 'other') return 'Otro';
+    return 'No especificado';
+  };
+
   const loadPendingAppointments = async () => {
     try {
       setLoading(true);
@@ -276,13 +295,16 @@ const PendingAppointments = () => {
                     <strong>Nombre:</strong> {selectedAppointment.Patient?.fullName}
                   </Typography>
                   <Typography variant="body2">
+                    <strong>Edad:</strong> {calculateAge(selectedAppointment.Patient?.birthDate)} años
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Sexo:</strong> {getGenderLabel(selectedAppointment.Patient?.gender)}
+                  </Typography>
+                  <Typography variant="body2">
                     <strong>Teléfono:</strong> {selectedAppointment.Patient?.phone}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Email:</strong> {selectedAppointment.Patient?.email || 'No proporcionado'}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Género:</strong> {selectedAppointment.Patient?.gender === 'male' ? 'Masculino' : 'Femenino'}
                   </Typography>
                 </Box>
               </Paper>

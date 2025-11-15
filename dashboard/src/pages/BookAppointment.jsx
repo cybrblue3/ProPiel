@@ -103,7 +103,7 @@ const BookAppointment = () => {
     phoneCountryCode: '+52',
     email: '',
     birthDate: '',
-    gender: 'female',
+    gender: '',
     address: ''
   });
 
@@ -337,7 +337,7 @@ const BookAppointment = () => {
         phoneCountryCode: '+52',
         email: '',
         birthDate: '',
-        gender: 'female',
+        gender: '',
         address: ''
       });
       setValidationErrors({
@@ -820,8 +820,9 @@ const BookAppointment = () => {
                   label="Sexo"
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, gender: e.target.value })}
                 >
-                  <MenuItem value="female">Femenino</MenuItem>
+                  <MenuItem value="" disabled>Seleccionar sexo</MenuItem>
                   <MenuItem value="male">Masculino</MenuItem>
+                  <MenuItem value="female">Femenino</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

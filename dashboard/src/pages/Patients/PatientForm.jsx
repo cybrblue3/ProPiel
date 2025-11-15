@@ -182,7 +182,7 @@ const PatientForm = () => {
               <TextField
                 fullWidth
                 select
-                label="Género *"
+                label="Sexo *"
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
@@ -190,7 +190,6 @@ const PatientForm = () => {
               >
                 <MenuItem value="male">Masculino</MenuItem>
                 <MenuItem value="female">Femenino</MenuItem>
-                <MenuItem value="other">Otro</MenuItem>
               </TextField>
             </Grid>
 

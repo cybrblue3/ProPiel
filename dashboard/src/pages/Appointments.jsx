@@ -42,6 +42,25 @@ const Appointments = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return 'N/A';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const getGenderLabel = (gender) => {
+    if (gender === 'male') return 'Masculino';
+    if (gender === 'female') return 'Femenino';
+    if (gender === 'other') return 'Otro';
+    return 'No especificado';
+  };
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -464,6 +483,12 @@ const Appointments = () => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   <Typography variant="body2">
                     <strong>Nombre:</strong> {selectedAppointment.Patient?.fullName}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Edad:</strong> {calculateAge(selectedAppointment.Patient?.birthDate)} años
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Sexo:</strong> {getGenderLabel(selectedAppointment.Patient?.gender)}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Teléfono:</strong> {selectedAppointment.Patient?.phone}

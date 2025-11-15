@@ -132,7 +132,7 @@ const PatientList = () => {
                 <TableRow>
                   <TableCell>Nombre</TableCell>
                   <TableCell>Edad</TableCell>
-                  <TableCell>Género</TableCell>
+                  <TableCell>Sexo</TableCell>
                   <TableCell>Teléfono</TableCell>
                   <TableCell>Email</TableCell>
                   <TableCell>Estado</TableCell>
