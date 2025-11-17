@@ -112,7 +112,8 @@ const BookAppointment = () => {
     fullName: '',
     phone: '',
     email: '',
-    birthDate: ''
+    birthDate: '',
+    gender: ''
   });
 
   const [bookingForm, setBookingForm] = useState({
@@ -231,6 +232,11 @@ const BookAppointment = () => {
     if (name.trim().length < 3) {
       return 'El nombre debe tener al menos 3 caracteres';
     }
+    // Only allow letters, Spanish characters (ñ, Ñ), accents (á, é, í, ó, ú), spaces, hyphens, and apostrophes
+    const validNameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/;
+    if (!validNameRegex.test(name)) {
+      return 'El nombre solo puede contener letras y caracteres válidos';
+    }
     // Check for at least two words (first name and last name)
     const words = name.trim().split(/\s+/);
     if (words.length < 2) {
@@ -269,13 +275,26 @@ const BookAppointment = () => {
     }
     const date = new Date(birthDate);
     const today = new Date();
-    const age = today.getFullYear() - date.getFullYear();
 
-    if (age > 120) {
-      return 'Fecha de nacimiento inválida';
+    // Set today to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+
+    // Check if birth date is in the future
+    if (date > today) {
+      return 'La fecha de nacimiento no puede ser futura';
     }
-    if (age < 0) {
-      return 'La fecha no puede ser futura';
+
+    const age = today.getFullYear() - date.getFullYear();
+    if (age > 120) {
+      return 'Fecha de nacimiento inválida (más de 120 años)';
+    }
+
+    return '';
+  };
+
+  const validateGender = (gender) => {
+    if (!gender || gender.trim().length === 0) {
+      return 'El sexo es requerido';
     }
     return '';
   };
@@ -285,7 +304,8 @@ const BookAppointment = () => {
       fullName: validateFullName(newPatientForm.fullName),
       phone: validatePhone(newPatientForm.phone),
       email: validateEmail(newPatientForm.email),
-      birthDate: validateBirthDate(newPatientForm.birthDate)
+      birthDate: validateBirthDate(newPatientForm.birthDate),
+      gender: validateGender(newPatientForm.gender)
     };
 
     setValidationErrors(errors);
@@ -388,6 +408,12 @@ const BookAppointment = () => {
   };
 
   const handleSubmit = async () => {
+    // Prevent double submission
+    if (loading) {
+      console.log('Already submitting, ignoring duplicate click');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
@@ -404,9 +430,24 @@ const BookAppointment = () => {
         status: bookingForm.depositPaid ? 'confirmed' : 'pending'
       };
 
-      await axios.post(`${API_URL}/admin/appointments/create`, appointmentData, {
+      const response = await axios.post(`${API_URL}/admin/appointments/create`, appointmentData, {
         headers: getAuthHeader()
       });
+
+      console.log('Create appointment response:', response.data);
+
+      // If WhatsApp notification is available and appointment was confirmed, open it
+      if (response.data.whatsapp && response.data.whatsapp.success && bookingForm.depositPaid) {
+        console.log('Opening WhatsApp:', response.data.whatsapp.url);
+        // Use anchor tag click to preserve emojis (window.open corrupts them)
+        const link = document.createElement('a');
+        link.href = response.data.whatsapp.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
 
       setSuccess('Cita creada exitosamente');
       setTimeout(() => {
@@ -415,9 +456,9 @@ const BookAppointment = () => {
     } catch (err) {
       console.error('Error creating appointment:', err);
       setError(err.response?.data?.message || 'Error al crear la cita');
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only reset loading on error
     }
+    // Don't reset loading on success - we're navigating away anyway
   };
 
   const renderStepContent = (step) => {
@@ -729,7 +770,7 @@ const BookAppointment = () => {
         open={newPatientDialog}
         onClose={() => {
           setNewPatientDialog(false);
-          setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '' });
+          setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '', gender: '' });
           setError('');
         }}
         maxWidth="sm"
@@ -758,10 +799,20 @@ const BookAppointment = () => {
                     value={newPatientForm.phoneCountryCode}
                     label="Código"
                     onChange={(e) => setNewPatientForm({ ...newPatientForm, phoneCountryCode: e.target.value })}
+                    sx={{
+                      fontFamily: '"Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", Arial, sans-serif',
+                      '& .MuiSelect-select': {
+                        fontFamily: '"Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", Arial, sans-serif'
+                      }
+                    }}
                   >
                     {COUNTRY_CODES.map((country, index) => (
-                      <MenuItem key={index} value={country.code}>
-                        {country.flag} {country.code}
+                      <MenuItem
+                        key={index}
+                        value={country.code}
+                        sx={{ fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif' }}
+                      >
+                        {country.flag} {country.country} ({country.code})
                       </MenuItem>
                     ))}
                   </Select>
@@ -813,18 +864,22 @@ const BookAppointment = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sexo</InputLabel>
-                <Select
-                  value={newPatientForm.gender}
-                  label="Sexo"
-                  onChange={(e) => setNewPatientForm({ ...newPatientForm, gender: e.target.value })}
-                >
-                  <MenuItem value="" disabled>Seleccionar sexo</MenuItem>
-                  <MenuItem value="male">Masculino</MenuItem>
-                  <MenuItem value="female">Femenino</MenuItem>
-                </Select>
-              </FormControl>
+              <TextField
+                select
+                fullWidth
+                label="Sexo *"
+                value={newPatientForm.gender}
+                onChange={(e) => setNewPatientForm({ ...newPatientForm, gender: e.target.value })}
+                error={Boolean(validationErrors.gender)}
+                helperText={validationErrors.gender}
+                SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+                required
+              >
+                <option value="">-- Seleccionar --</option>
+                <option value="male">Masculino</option>
+                <option value="female">Femenino</option>
+              </TextField>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -842,7 +897,7 @@ const BookAppointment = () => {
           <Button
             onClick={() => {
               setNewPatientDialog(false);
-              setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '' });
+              setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '', gender: '' });
               setError('');
             }}
           >
@@ -851,7 +906,7 @@ const BookAppointment = () => {
           <Button
             onClick={handleCreatePatient}
             variant="contained"
-            disabled={!newPatientForm.fullName || !newPatientForm.phone || !newPatientForm.birthDate}
+            disabled={!newPatientForm.fullName || !newPatientForm.phone || !newPatientForm.birthDate || !newPatientForm.gender}
           >
             Crear Paciente
           </Button>

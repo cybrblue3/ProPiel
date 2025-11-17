@@ -27,7 +27,9 @@ import {
   CheckCircle as CheckIcon,
   Cancel as CancelIcon,
   Visibility as ViewIcon,
-  AttachFile as AttachIcon
+  AttachFile as AttachIcon,
+  Refresh as RefreshIcon,
+  WhatsApp as WhatsAppIcon
 } from '@mui/icons-material';
 import { adminAPI } from '../services/api';
 
@@ -41,6 +43,8 @@ const PendingAppointments = () => {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return 'N/A';
@@ -100,7 +104,28 @@ const PendingAppointments = () => {
 
     try {
       setActionLoading(true);
-      await adminAPI.confirmAppointment(selectedAppointment.id);
+      const response = await adminAPI.confirmAppointment(selectedAppointment.id);
+
+      console.log('Confirm response:', response.data);
+
+      // Store WhatsApp URL for opening
+      if (response.data.whatsapp && response.data.whatsapp.success) {
+        console.log('WhatsApp available:', response.data.whatsapp.url);
+        setWhatsappUrl(response.data.whatsapp.url);
+        setSuccessMessage(`Cita confirmada exitosamente. ¡Notifica al paciente por WhatsApp!`);
+
+        // Try to open immediately using anchor tag to preserve emojis
+        const link = document.createElement('a');
+        link.href = response.data.whatsapp.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.log('WhatsApp notification not available:', response.data.whatsapp);
+        setSuccessMessage('Cita confirmada exitosamente');
+      }
 
       // Remove from pending list
       setAppointments(appointments.filter(apt => apt.id !== selectedAppointment.id));
@@ -120,7 +145,28 @@ const PendingAppointments = () => {
 
     try {
       setActionLoading(true);
-      await adminAPI.cancelAppointment(selectedAppointment.id, cancellationReason);
+      const response = await adminAPI.cancelAppointment(selectedAppointment.id, cancellationReason);
+
+      console.log('Cancel response:', response.data);
+
+      // Store WhatsApp URL for opening
+      if (response.data.whatsapp && response.data.whatsapp.success) {
+        console.log('WhatsApp available:', response.data.whatsapp.url);
+        setWhatsappUrl(response.data.whatsapp.url);
+        setSuccessMessage(`Cita cancelada exitosamente. Notifica al paciente por WhatsApp.`);
+
+        // Try to open immediately using anchor tag to preserve emojis
+        const link = document.createElement('a');
+        link.href = response.data.whatsapp.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.log('WhatsApp notification not available:', response.data.whatsapp);
+        setSuccessMessage('Cita cancelada exitosamente');
+      }
 
       // Remove from pending list
       setAppointments(appointments.filter(apt => apt.id !== selectedAppointment.id));
@@ -163,13 +209,56 @@ const PendingAppointments = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Citas Pendientes de Aprobación
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          Citas Pendientes de Aprobación
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={loadPendingAppointments}
+          disabled={loading}
+        >
+          Actualizar
+        </Button>
+      </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {successMessage && (
+        <Alert
+          severity="success"
+          sx={{ mb: 3 }}
+          onClose={() => {
+            setSuccessMessage('');
+            setWhatsappUrl(null);
+          }}
+          action={
+            whatsappUrl && (
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<WhatsAppIcon />}
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = whatsappUrl;
+                  link.target = '_blank';
+                  link.rel = 'noopener noreferrer';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                Abrir WhatsApp
+              </Button>
+            )
+          }
+        >
+          {successMessage}
         </Alert>
       )}
 
@@ -209,7 +298,7 @@ const PendingAppointments = () => {
                         {appointment.Service?.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        ${appointment.Service?.depositAmount} MXN
+                        ${appointment.Service?.price ? (appointment.Service.price * (appointment.Service.depositPercentage || 50) / 100).toFixed(2) : 0} MXN anticipo
                       </Typography>
                     </Box>
                   </TableCell>
@@ -323,7 +412,7 @@ const PendingAppointments = () => {
                       <strong>Precio:</strong> ${selectedAppointment.Service?.price} MXN
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      <strong>Anticipo:</strong> ${selectedAppointment.Service?.depositAmount} MXN
+                      <strong>Anticipo (50%):</strong> ${selectedAppointment.Service?.price ? (selectedAppointment.Service.price * selectedAppointment.Service.depositPercentage / 100).toFixed(2) : 0} MXN
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>

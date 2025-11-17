@@ -29,7 +29,11 @@ import {
   ListItemText,
   Divider,
   Tabs,
-  Tab
+  Tab,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -40,9 +44,39 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
   Cake as CakeIcon,
-  Event as EventIcon
+  Event as EventIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
 import { patientsAPI, adminAPI } from '../services/api';
+
+// Country codes for phone numbers (Mexico first, then alphabetical)
+const COUNTRY_CODES = [
+  { code: '+52', country: 'México', flag: '🇲🇽' },
+  { code: '+1', country: 'Estados Unidos', flag: '🇺🇸' },
+  { code: '+1', country: 'Canadá', flag: '🇨🇦' },
+  { code: '+54', country: 'Argentina', flag: '🇦🇷' },
+  { code: '+61', country: 'Australia', flag: '🇦🇺' },
+  { code: '+55', country: 'Brasil', flag: '🇧🇷' },
+  { code: '+56', country: 'Chile', flag: '🇨🇱' },
+  { code: '+57', country: 'Colombia', flag: '🇨🇴' },
+  { code: '+506', country: 'Costa Rica', flag: '🇨🇷' },
+  { code: '+593', country: 'Ecuador', flag: '🇪🇨' },
+  { code: '+503', country: 'El Salvador', flag: '🇸🇻' },
+  { code: '+34', country: 'España', flag: '🇪🇸' },
+  { code: '+33', country: 'Francia', flag: '🇫🇷' },
+  { code: '+502', country: 'Guatemala', flag: '🇬🇹' },
+  { code: '+504', country: 'Honduras', flag: '🇭🇳' },
+  { code: '+39', country: 'Italia', flag: '🇮🇹' },
+  { code: '+505', country: 'Nicaragua', flag: '🇳🇮' },
+  { code: '+507', country: 'Panamá', flag: '🇵🇦' },
+  { code: '+595', country: 'Paraguay', flag: '🇵🇾' },
+  { code: '+51', country: 'Perú', flag: '🇵🇪' },
+  { code: '+1-787', country: 'Puerto Rico', flag: '🇵🇷' },
+  { code: '+1-809', country: 'República Dominicana', flag: '🇩🇴' },
+  { code: '+44', country: 'Reino Unido', flag: '🇬🇧' },
+  { code: '+598', country: 'Uruguay', flag: '🇺🇾' },
+  { code: '+58', country: 'Venezuela', flag: '🇻🇪' }
+];
 
 const Patients = () => {
   const [patients, setPatients] = useState([]);
@@ -59,19 +93,42 @@ const Patients = () => {
   const [patientAppointments, setPatientAppointments] = useState([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [success, setSuccess] = useState('');
 
   // Edit form
   const [editForm, setEditForm] = useState({
     fullName: '',
     phone: '',
+    phoneCountryCode: '+52',
     email: '',
     birthDate: '',
     gender: '',
     address: '',
     allergies: '',
     notes: ''
+  });
+
+  // Create form
+  const [createForm, setCreateForm] = useState({
+    fullName: '',
+    phone: '',
+    phoneCountryCode: '+52',
+    email: '',
+    birthDate: '',
+    gender: '',
+    address: ''
+  });
+
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    birthDate: '',
+    gender: ''
   });
 
   const loadPatients = async () => {
@@ -116,9 +173,24 @@ const Patients = () => {
 
   const handleEditClick = (patient) => {
     setSelectedPatient(patient);
+
+    // Parse phone number to extract country code and number
+    let phoneCountryCode = '+52';
+    let phoneNumber = patient.phone || '';
+
+    if (patient.phone) {
+      // Try to match country code at the start
+      const match = patient.phone.match(/^(\+[\d-]+)\s+(.+)$/);
+      if (match) {
+        phoneCountryCode = match[1];
+        phoneNumber = match[2].replace(/\D/g, ''); // Remove non-digits
+      }
+    }
+
     setEditForm({
       fullName: patient.fullName || '',
-      phone: patient.phone || '',
+      phone: phoneNumber,
+      phoneCountryCode: phoneCountryCode,
       email: patient.email || '',
       birthDate: patient.birthDate || '',
       gender: patient.gender || '',
@@ -129,15 +201,190 @@ const Patients = () => {
     setEditOpen(true);
   };
 
+  const validateEditForm = () => {
+    const errors = {
+      fullName: validateFullName(editForm.fullName),
+      phone: validatePhone(editForm.phone),
+      email: validateEmail(editForm.email),
+      birthDate: validateBirthDate(editForm.birthDate),
+      gender: validateGender(editForm.gender)
+    };
+
+    setValidationErrors(errors);
+    return !Object.values(errors).some(error => error !== '');
+  };
+
+  const handleEditFieldChange = (field, value) => {
+    if (field === 'phone') {
+      const cleaned = value.replace(/\D/g, '');
+      const limited = cleaned.slice(0, 10);
+      setEditForm({ ...editForm, [field]: limited });
+    } else {
+      setEditForm({ ...editForm, [field]: value });
+    }
+    setValidationErrors({ ...validationErrors, [field]: '' });
+  };
+
   const handleEditSubmit = async () => {
+    if (!validateEditForm()) {
+      setError('Por favor corrige los errores en el formulario');
+      return;
+    }
+
     try {
-      await patientsAPI.update(selectedPatient.id, editForm);
+      const fullPhone = `${editForm.phoneCountryCode} ${editForm.phone}`;
+      await patientsAPI.update(selectedPatient.id, {
+        ...editForm,
+        phone: fullPhone
+      });
       await loadPatients();
       setEditOpen(false);
       setSelectedPatient(null);
+      setValidationErrors({
+        fullName: '',
+        phone: '',
+        email: '',
+        birthDate: '',
+        gender: ''
+      });
+      setSuccess('Paciente actualizado exitosamente');
     } catch (err) {
       console.error('Error updating patient:', err);
       setError('Error al actualizar el paciente');
+    }
+  };
+
+  // Validation functions
+  const validateFullName = (name) => {
+    if (!name || name.trim().length === 0) {
+      return 'El nombre completo es requerido';
+    }
+    if (name.trim().length < 3) {
+      return 'El nombre debe tener al menos 3 caracteres';
+    }
+    // Only allow letters, Spanish characters (ñ, Ñ), accents (á, é, í, ó, ú), spaces, hyphens, and apostrophes
+    const validNameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]+$/;
+    if (!validNameRegex.test(name)) {
+      return 'El nombre solo puede contener letras y caracteres válidos';
+    }
+    const words = name.trim().split(/\s+/);
+    if (words.length < 2) {
+      return 'Ingresa nombre y apellido';
+    }
+    return '';
+  };
+
+  const validatePhone = (phone) => {
+    if (!phone || phone.trim().length === 0) {
+      return 'El teléfono es requerido';
+    }
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      return 'El teléfono debe tener 10 dígitos';
+    }
+    return '';
+  };
+
+  const validateEmail = (email) => {
+    if (!email || email.trim().length === 0) {
+      return ''; // Email is optional
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Formato de email inválido';
+    }
+    return '';
+  };
+
+  const validateBirthDate = (birthDate) => {
+    if (!birthDate || birthDate.trim().length === 0) {
+      return 'La fecha de nacimiento es requerida';
+    }
+    const date = new Date(birthDate);
+    const today = new Date();
+
+    // Set today to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+
+    // Check if birth date is in the future
+    if (date > today) {
+      return 'La fecha de nacimiento no puede ser futura';
+    }
+
+    const age = today.getFullYear() - date.getFullYear();
+    if (age > 120) {
+      return 'Fecha de nacimiento inválida (más de 120 años)';
+    }
+
+    return '';
+  };
+
+  const validateGender = (gender) => {
+    if (!gender || gender.trim().length === 0) {
+      return 'El sexo es requerido';
+    }
+    return '';
+  };
+
+  const validateCreateForm = () => {
+    const errors = {
+      fullName: validateFullName(createForm.fullName),
+      phone: validatePhone(createForm.phone),
+      email: validateEmail(createForm.email),
+      birthDate: validateBirthDate(createForm.birthDate),
+      gender: validateGender(createForm.gender)
+    };
+
+    setValidationErrors(errors);
+    return !Object.values(errors).some(error => error !== '');
+  };
+
+  const handleCreateFieldChange = (field, value) => {
+    if (field === 'phone') {
+      const cleaned = value.replace(/\D/g, '');
+      const limited = cleaned.slice(0, 10);
+      setCreateForm({ ...createForm, [field]: limited });
+    } else {
+      setCreateForm({ ...createForm, [field]: value });
+    }
+    setValidationErrors({ ...validationErrors, [field]: '' });
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!validateCreateForm()) {
+      setError('Por favor corrige los errores en el formulario');
+      return;
+    }
+
+    try {
+      const fullPhone = `${createForm.phoneCountryCode} ${createForm.phone}`;
+      await patientsAPI.create({
+        ...createForm,
+        phone: fullPhone
+      });
+
+      await loadPatients();
+      setCreateOpen(false);
+      setCreateForm({
+        fullName: '',
+        phone: '',
+        phoneCountryCode: '+52',
+        email: '',
+        birthDate: '',
+        gender: '',
+        address: ''
+      });
+      setValidationErrors({
+        fullName: '',
+        phone: '',
+        email: '',
+        birthDate: '',
+        gender: ''
+      });
+      setSuccess('Paciente creado exitosamente');
+    } catch (err) {
+      console.error('Error creating patient:', err);
+      setError(err.response?.data?.message || 'Error al crear paciente');
     }
   };
 
@@ -160,6 +407,25 @@ const Patients = () => {
       age--;
     }
     return age;
+  };
+
+  // Format phone for consistent display (always show with country code)
+  const formatPhoneDisplay = (phone) => {
+    if (!phone) return '-';
+
+    // If phone already has country code, return as is
+    if (phone.startsWith('+')) {
+      return phone;
+    }
+
+    // If it's just 10 digits, assume Mexico and add +52
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 10) {
+      return `+52 ${cleanPhone}`;
+    }
+
+    // Otherwise return as is
+    return phone;
   };
 
   const formatDate = (dateString) => {
@@ -215,19 +481,34 @@ const Patients = () => {
         <Typography variant="h4">
           Gestión de Pacientes
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={loadPatients}
-          disabled={loading}
-        >
-          Actualizar
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+          >
+            Agregar Paciente
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadPatients}
+            disabled={loading}
+          >
+            Actualizar
+          </Button>
+        </Box>
       </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+          {success}
         </Alert>
       )}
 
@@ -288,7 +569,7 @@ const Patients = () => {
                           {patient.fullName}
                         </Typography>
                       </TableCell>
-                      <TableCell>{patient.phone}</TableCell>
+                      <TableCell>{formatPhoneDisplay(patient.phone)}</TableCell>
                       <TableCell>{patient.email || '-'}</TableCell>
                       <TableCell>{calculateAge(patient.birthDate)} años</TableCell>
                       <TableCell>
@@ -368,7 +649,7 @@ const Patients = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <PhoneIcon fontSize="small" color="action" />
                           <Typography variant="body2">
-                            <strong>Teléfono:</strong> {selectedPatient.phone}
+                            <strong>Teléfono:</strong> {formatPhoneDisplay(selectedPatient.phone)}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -484,25 +765,74 @@ const Patients = () => {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={editOpen}
+        onClose={() => {
+          setEditOpen(false);
+          setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '', gender: '' });
+          setError('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Editar Paciente</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Nombre completo"
+                label="Nombre Completo *"
                 value={editForm.fullName}
-                onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                onChange={(e) => handleEditFieldChange('fullName', e.target.value)}
+                error={Boolean(validationErrors.fullName)}
+                helperText={validationErrors.fullName || 'Ingresa nombre y apellido completos'}
+                placeholder="Ej: Juan Pérez García"
+                required
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Teléfono"
-                value={editForm.phone}
-                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-              />
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <FormControl sx={{ minWidth: 140 }}>
+                  <InputLabel>Código</InputLabel>
+                  <Select
+                    value={editForm.phoneCountryCode}
+                    label="Código"
+                    onChange={(e) => setEditForm({ ...editForm, phoneCountryCode: e.target.value })}
+                    sx={{
+                      fontFamily: '"Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", Arial, sans-serif',
+                      '& .MuiSelect-select': {
+                        fontFamily: '"Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", Arial, sans-serif'
+                      }
+                    }}
+                  >
+                    {COUNTRY_CODES.map((country, index) => (
+                      <MenuItem
+                        key={index}
+                        value={country.code}
+                        sx={{ fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif' }}
+                      >
+                        {country.flag} {country.country} ({country.code})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  fullWidth
+                  label="Teléfono *"
+                  value={editForm.phone}
+                  onChange={(e) => handleEditFieldChange('phone', e.target.value)}
+                  error={Boolean(validationErrors.phone)}
+                  helperText={validationErrors.phone || '10 dígitos'}
+                  placeholder="5512345678"
+                  required
+                  type="tel"
+                  inputProps={{
+                    maxLength: 10,
+                    inputMode: 'numeric',
+                    pattern: '[0-9]*'
+                  }}
+                />
+              </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
@@ -510,28 +840,42 @@ const Patients = () => {
                 label="Email"
                 type="email"
                 value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                onChange={(e) => handleEditFieldChange('email', e.target.value)}
+                error={Boolean(validationErrors.email)}
+                helperText={validationErrors.email || 'Opcional'}
+                placeholder="ejemplo@correo.com"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 type="date"
-                label="Fecha de nacimiento"
+                label="Fecha de Nacimiento *"
                 value={editForm.birthDate}
-                onChange={(e) => setEditForm({ ...editForm, birthDate: e.target.value })}
+                onChange={(e) => handleEditFieldChange('birthDate', e.target.value)}
+                error={Boolean(validationErrors.birthDate)}
+                helperText={validationErrors.birthDate}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  max: new Date().toISOString().split('T')[0]
+                }}
+                required
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 select
                 fullWidth
-                label="Sexo"
+                label="Sexo *"
                 value={editForm.gender}
-                onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })}
+                onChange={(e) => handleEditFieldChange('gender', e.target.value)}
+                error={Boolean(validationErrors.gender)}
+                helperText={validationErrors.gender}
                 SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+                required
               >
+                <option value="">-- Seleccionar --</option>
                 <option value="male">Masculino</option>
                 <option value="female">Femenino</option>
               </TextField>
@@ -569,9 +913,169 @@ const Patients = () => {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleEditSubmit}>
+          <Button
+            onClick={() => {
+              setEditOpen(false);
+              setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '', gender: '' });
+              setError('');
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleEditSubmit}
+            disabled={!editForm.fullName || !editForm.phone || !editForm.birthDate || !editForm.gender}
+          >
             Guardar Cambios
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Patient Dialog */}
+      <Dialog
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '', gender: '' });
+          setError('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Crear Nuevo Paciente</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Nombre Completo *"
+                value={createForm.fullName}
+                onChange={(e) => handleCreateFieldChange('fullName', e.target.value)}
+                error={Boolean(validationErrors.fullName)}
+                helperText={validationErrors.fullName || 'Ingresa nombre y apellido completos'}
+                placeholder="Ej: Juan Pérez García"
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <FormControl sx={{ minWidth: 140 }}>
+                  <InputLabel>Código</InputLabel>
+                  <Select
+                    value={createForm.phoneCountryCode}
+                    label="Código"
+                    onChange={(e) => setCreateForm({ ...createForm, phoneCountryCode: e.target.value })}
+                    sx={{
+                      fontFamily: '"Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", Arial, sans-serif',
+                      '& .MuiSelect-select': {
+                        fontFamily: '"Segoe UI Emoji", "Segoe UI Symbol", "Segoe UI", Arial, sans-serif'
+                      }
+                    }}
+                  >
+                    {COUNTRY_CODES.map((country, index) => (
+                      <MenuItem
+                        key={index}
+                        value={country.code}
+                        sx={{ fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif' }}
+                      >
+                        {country.flag} {country.country} ({country.code})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField
+                  fullWidth
+                  label="Teléfono *"
+                  value={createForm.phone}
+                  onChange={(e) => handleCreateFieldChange('phone', e.target.value)}
+                  error={Boolean(validationErrors.phone)}
+                  helperText={validationErrors.phone || '10 dígitos'}
+                  placeholder="5512345678"
+                  required
+                  type="tel"
+                  inputProps={{
+                    maxLength: 10,
+                    inputMode: 'numeric',
+                    pattern: '[0-9]*'
+                  }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={createForm.email}
+                onChange={(e) => handleCreateFieldChange('email', e.target.value)}
+                error={Boolean(validationErrors.email)}
+                helperText={validationErrors.email || 'Opcional'}
+                placeholder="ejemplo@correo.com"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Fecha de Nacimiento *"
+                value={createForm.birthDate}
+                onChange={(e) => handleCreateFieldChange('birthDate', e.target.value)}
+                error={Boolean(validationErrors.birthDate)}
+                helperText={validationErrors.birthDate}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  max: new Date().toISOString().split('T')[0]
+                }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                fullWidth
+                label="Sexo *"
+                value={createForm.gender}
+                onChange={(e) => setCreateForm({ ...createForm, gender: e.target.value })}
+                error={Boolean(validationErrors.gender)}
+                helperText={validationErrors.gender}
+                SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+                required
+              >
+                <option value="">-- Seleccionar --</option>
+                <option value="male">Masculino</option>
+                <option value="female">Femenino</option>
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Dirección"
+                value={createForm.address}
+                onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
+                placeholder="Calle, número, colonia, ciudad"
+                helperText="Opcional"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setCreateOpen(false);
+              setValidationErrors({ fullName: '', phone: '', email: '', birthDate: '', gender: '' });
+              setError('');
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleCreateSubmit}
+            variant="contained"
+            disabled={!createForm.fullName || !createForm.phone || !createForm.birthDate || !createForm.gender}
+          >
+            Crear Paciente
           </Button>
         </DialogActions>
       </Dialog>

@@ -3,6 +3,7 @@ const router = express.Router();
 const { Op } = require('sequelize');
 const { Appointment, Patient, Doctor, Service, PaymentProof, User } = require('../models');
 const auth = require('../middleware/auth');
+const { sendWhatsAppNotification } = require('../utils/whatsapp');
 
 // Middleware to check admin/receptionist role
 const adminOnly = (req, res, next) => {
@@ -110,7 +111,7 @@ router.get('/appointments/pending', async (req, res) => {
         },
         {
           model: Service,
-          attributes: ['id', 'name', 'price', 'depositAmount']
+          attributes: ['id', 'name', 'price', 'depositPercentage']
         },
         {
           model: PaymentProof,
@@ -213,18 +214,31 @@ router.patch('/appointments/:id/confirm', async (req, res) => {
       confirmedAt: new Date()
     });
 
-    // Reload with associations
+    // Reload with associations for WhatsApp notification
     await appointment.reload({
       include: [
-        { model: Patient, attributes: ['fullName', 'phone'] },
+        { model: Patient, attributes: ['fullName', 'phone', 'phoneCountryCode'] },
         { model: Service, attributes: ['name'] }
       ]
     });
 
+    console.log('Appointment data for WhatsApp:', {
+      patientName: appointment.Patient?.fullName,
+      patientPhone: appointment.Patient?.phone,
+      serviceName: appointment.Service?.name,
+      appointmentDate: appointment.appointmentDate,
+      appointmentTime: appointment.appointmentTime
+    });
+
+    // Generate WhatsApp notification
+    const whatsappNotification = sendWhatsAppNotification(appointment, 'confirmation');
+    console.log('WhatsApp notification result:', whatsappNotification);
+
     res.json({
       success: true,
       message: 'Cita confirmada exitosamente',
-      data: appointment
+      data: appointment,
+      whatsapp: whatsappNotification
     });
   } catch (error) {
     console.error('Error confirming appointment:', error);
@@ -266,10 +280,31 @@ router.patch('/appointments/:id/cancel', async (req, res) => {
       cancelledAt: new Date()
     });
 
+    // Reload with associations for WhatsApp notification
+    await appointment.reload({
+      include: [
+        { model: Patient, attributes: ['fullName', 'phone', 'phoneCountryCode'] },
+        { model: Service, attributes: ['name'] }
+      ]
+    });
+
+    console.log('Appointment data for WhatsApp (cancel):', {
+      patientName: appointment.Patient?.fullName,
+      patientPhone: appointment.Patient?.phone,
+      serviceName: appointment.Service?.name,
+      appointmentDate: appointment.appointmentDate,
+      appointmentTime: appointment.appointmentTime
+    });
+
+    // Generate WhatsApp notification
+    const whatsappNotification = sendWhatsAppNotification(appointment, 'cancellation');
+    console.log('WhatsApp notification result (cancel):', whatsappNotification);
+
     res.json({
       success: true,
       message: 'Cita cancelada exitosamente',
-      data: appointment
+      data: appointment,
+      whatsapp: whatsappNotification
     });
   } catch (error) {
     console.error('Error cancelling appointment:', error);
@@ -361,6 +396,15 @@ router.post('/blocked-dates', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'La fecha es requerida'
+      });
+    }
+
+    // Check if date already exists
+    const existingDate = await BlockedDate.findOne({ where: { date } });
+    if (existingDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta fecha ya está bloqueada'
       });
     }
 
@@ -574,16 +618,24 @@ router.post('/appointments/create', async (req, res) => {
     // Load related data
     const fullAppointment = await Appointment.findByPk(appointment.id, {
       include: [
-        { model: Patient, attributes: ['id', 'fullName', 'phone', 'email'] },
+        { model: Patient, attributes: ['id', 'fullName', 'phone', 'phoneCountryCode', 'email'] },
         { model: Service, attributes: ['id', 'name', 'price', 'depositAmount'] },
         { model: Doctor, attributes: ['id', 'fullName', 'specialty'] }
       ]
     });
 
+    // If appointment was confirmed immediately, send WhatsApp notification
+    let whatsappNotification = null;
+    if (depositPaid && fullAppointment.status === 'confirmed') {
+      whatsappNotification = sendWhatsAppNotification(fullAppointment, 'confirmation');
+      console.log('WhatsApp notification (immediate confirm):', whatsappNotification);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Cita creada exitosamente',
-      data: fullAppointment
+      data: fullAppointment,
+      whatsapp: whatsappNotification
     });
   } catch (error) {
     console.error('Error creating appointment:', error);

@@ -24,8 +24,16 @@ const formatPhoneNumber = (phone, countryCode = '52') => {
 
 /**
  * Format date for display (DD/MM/YYYY)
+ * Parses date string directly to avoid timezone conversion issues
  */
 const formatDate = (date) => {
+  // If date is already a string in YYYY-MM-DD format, parse it directly
+  if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}/)) {
+    const [year, month, day] = date.split('-').map(num => parseInt(num, 10));
+    return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+  }
+
+  // Fallback to Date object parsing
   const d = new Date(date);
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -161,6 +169,36 @@ Tu cita ${patientInfo}en *Clínica ProPiel* es mañana:
 };
 
 /**
+ * Custom encoding for WhatsApp that preserves emojis as raw Unicode
+ * Only encodes URL-breaking characters, leaves emojis untouched
+ */
+const encodeWhatsAppMessage = (message) => {
+  // Split message into array of characters to handle emojis properly
+  return Array.from(message).map(char => {
+    const code = char.charCodeAt(0);
+
+    // If it's an emoji or high Unicode (> 127), leave it as is
+    if (code > 127) {
+      return char;
+    }
+
+    // Encode specific URL-breaking characters
+    switch (char) {
+      case ' ': return '%20';
+      case '\n': return '%0A';
+      case '\r': return '%0D';
+      case '%': return '%25';
+      case '#': return '%23';
+      case '&': return '%26';
+      case '+': return '%2B';
+      case '=': return '%3D';
+      case '?': return '%3F';
+      default: return char;
+    }
+  }).join('');
+};
+
+/**
  * Create WhatsApp web URL for sending message
  * @param {string} phone - Phone number (will be formatted to international)
  * @param {string} message - Message text
@@ -168,9 +206,11 @@ Tu cita ${patientInfo}en *Clínica ProPiel* es mañana:
  */
 const createWhatsAppURL = (phone, message) => {
   const formattedPhone = formatPhoneNumber(phone);
+  // Use encodeURIComponent for api.whatsapp.com endpoint (it handles emojis better)
   const encodedMessage = encodeURIComponent(message);
 
-  return `https://wa.me/${formattedPhone}?text=${encodedMessage}`;
+  // Use api.whatsapp.com/send directly instead of wa.me to preserve emojis
+  return `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedMessage}`;
 };
 
 /**

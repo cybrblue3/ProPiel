@@ -33,7 +33,8 @@ import {
   Cancel as CancelIcon,
   CheckCircle as CheckIcon,
   FilterList as FilterIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  WhatsApp as WhatsAppIcon
 } from '@mui/icons-material';
 import { adminAPI } from '../services/api';
 
@@ -76,9 +77,12 @@ const Appointments = () => {
   // Dialog states
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [whatsappUrl, setWhatsappUrl] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const loadAppointments = async () => {
     try {
@@ -136,6 +140,11 @@ const Appointments = () => {
     }
   };
 
+  const handleConfirmClick = (appointment) => {
+    setSelectedAppointment(appointment);
+    setConfirmDialogOpen(true);
+  };
+
   const handleCancelClick = (appointment) => {
     setSelectedAppointment(appointment);
     setCancelDialogOpen(true);
@@ -147,7 +156,28 @@ const Appointments = () => {
 
     try {
       setActionLoading(true);
-      await adminAPI.cancelAppointment(selectedAppointment.id, cancellationReason);
+      const response = await adminAPI.cancelAppointment(selectedAppointment.id, cancellationReason);
+
+      console.log('Cancel response:', response.data);
+
+      // Store WhatsApp URL for opening
+      if (response.data.whatsapp && response.data.whatsapp.success) {
+        console.log('WhatsApp available:', response.data.whatsapp.url);
+        setWhatsappUrl(response.data.whatsapp.url);
+        setSuccessMessage(`Cita cancelada exitosamente. Notifica al paciente por WhatsApp.`);
+
+        // Try to open immediately using anchor tag to preserve emojis
+        const link = document.createElement('a');
+        link.href = response.data.whatsapp.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.log('WhatsApp notification not available:', response.data.whatsapp);
+        setSuccessMessage('Cita cancelada exitosamente');
+      }
 
       // Reload appointments
       await loadAppointments();
@@ -163,11 +193,37 @@ const Appointments = () => {
     }
   };
 
-  const handleConfirmAppointment = async (appointmentId) => {
+  const handleConfirmAppointment = async () => {
+    if (!selectedAppointment) return;
+
     try {
       setActionLoading(true);
-      await adminAPI.confirmAppointment(appointmentId);
+      const response = await adminAPI.confirmAppointment(selectedAppointment.id);
+
+      console.log('Confirm response:', response.data);
+
+      // Store WhatsApp URL for opening
+      if (response.data.whatsapp && response.data.whatsapp.success) {
+        console.log('WhatsApp available:', response.data.whatsapp.url);
+        setWhatsappUrl(response.data.whatsapp.url);
+        setSuccessMessage(`Cita confirmada exitosamente. ¡Notifica al paciente por WhatsApp!`);
+
+        // Try to open immediately using anchor tag to preserve emojis
+        const link = document.createElement('a');
+        link.href = response.data.whatsapp.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        console.log('WhatsApp notification not available:', response.data.whatsapp);
+        setSuccessMessage('Cita confirmada exitosamente');
+      }
+
       await loadAppointments();
+      setConfirmDialogOpen(false);
+      setSelectedAppointment(null);
     } catch (err) {
       console.error('Error confirming appointment:', err);
       setError('Error al confirmar la cita');
@@ -237,6 +293,39 @@ const Appointments = () => {
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {successMessage && (
+        <Alert
+          severity="success"
+          sx={{ mb: 3 }}
+          onClose={() => {
+            setSuccessMessage('');
+            setWhatsappUrl(null);
+          }}
+          action={
+            whatsappUrl && (
+              <Button
+                color="inherit"
+                size="small"
+                startIcon={<WhatsAppIcon />}
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = whatsappUrl;
+                  link.target = '_blank';
+                  link.rel = 'noopener noreferrer';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                Abrir WhatsApp
+              </Button>
+            )
+          }
+        >
+          {successMessage}
         </Alert>
       )}
 
@@ -422,7 +511,7 @@ const Appointments = () => {
                           <IconButton
                             size="small"
                             color="success"
-                            onClick={() => handleConfirmAppointment(appointment.id)}
+                            onClick={() => handleConfirmClick(appointment)}
                             title="Confirmar"
                             disabled={actionLoading}
                           >
@@ -571,6 +660,42 @@ const Appointments = () => {
         <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
           <Button onClick={() => setDetailsOpen(false)} variant="outlined">
             Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Dialog */}
+      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
+        <DialogTitle>Confirmar Cita</DialogTitle>
+        <DialogContent>
+          <Typography>
+            ¿Estás seguro de que deseas aprobar esta cita?
+          </Typography>
+          {selectedAppointment && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+              <Typography variant="body2">
+                <strong>Paciente:</strong> {selectedAppointment.Patient?.fullName}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Servicio:</strong> {selectedAppointment.Service?.name}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Fecha:</strong> {formatDate(selectedAppointment.appointmentDate)} - {formatTime(selectedAppointment.appointmentTime)}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)} disabled={actionLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleConfirmAppointment}
+            disabled={actionLoading}
+          >
+            {actionLoading ? <CircularProgress size={24} /> : 'Confirmar'}
           </Button>
         </DialogActions>
       </Dialog>

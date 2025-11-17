@@ -121,7 +121,7 @@ const Layout = () => {
     <div>
       <Toolbar sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', justifyContent: 'center', py: 2 }}>
         <Box sx={{ filter: 'brightness(0) invert(1)' }}>
-          <Logo5 width={60} variant="icon" />
+          <Logo5 width={180} variant="full" />
         </Box>
       </Toolbar>
       <Divider />
