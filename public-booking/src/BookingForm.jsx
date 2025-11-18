@@ -19,8 +19,12 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  IconButton,
+  Tooltip,
+  Snackbar
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -267,6 +271,24 @@ export default function BookingForm() {
   const [calculatedAge, setCalculatedAge] = useState(null);
   const [ageError, setAgeError] = useState('');
   const [blockedDates, setBlockedDates] = useState([]);
+  const [copySuccess, setCopySuccess] = useState('');
+
+  // Copy to clipboard function
+  const copyToClipboard = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(`${label} copiado`);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(`${label} copiado`);
+    }
+  };
 
   // Form data
   const [formData, setFormData] = useState({
@@ -713,8 +735,6 @@ export default function BookingForm() {
               maxDate={dayjs()}
               minDate={dayjs().subtract(120, 'year')}
               defaultCalendarMonth={dayjs().subtract(25, 'year')}
-              openTo="year"
-              views={['year', 'month', 'day']}
               slotProps={{
                 textField: {
                   sx: { flex: '1 1 calc(50% - 8px)', minWidth: '250px' },
@@ -1260,25 +1280,52 @@ export default function BookingForm() {
                 <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: '100px' }}>
                   Cuenta:
                 </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace', flex: 1 }}>
                   {paymentConfig.accountNumber}
                 </Typography>
+                <Tooltip title="Copiar cuenta">
+                  <IconButton
+                    size="small"
+                    onClick={() => copyToClipboard(paymentConfig.accountNumber, 'Cuenta')}
+                    sx={{ color: 'primary.main' }}
+                  >
+                    <ContentCopyIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: '100px' }}>
                   CLABE:
                 </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace' }}>
+                <Typography variant="body1" sx={{ fontWeight: 500, fontFamily: 'monospace', flex: 1 }}>
                   {paymentConfig.clabe}
                 </Typography>
+                <Tooltip title="Copiar CLABE">
+                  <IconButton
+                    size="small"
+                    onClick={() => copyToClipboard(paymentConfig.clabe, 'CLABE')}
+                    sx={{ color: 'primary.main' }}
+                  >
+                    <ContentCopyIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: '100px' }}>
                   Referencia:
                 </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main', fontFamily: 'monospace', fontSize: '1.1rem' }}>
+                <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main', fontFamily: 'monospace', fontSize: '1.1rem', flex: 1 }}>
                   {paymentReference}
                 </Typography>
+                <Tooltip title="Copiar referencia">
+                  <IconButton
+                    size="small"
+                    onClick={() => copyToClipboard(paymentReference, 'Referencia')}
+                    sx={{ color: 'primary.main' }}
+                  >
+                    <ContentCopyIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
           </Paper>
@@ -1650,6 +1697,15 @@ export default function BookingForm() {
         {activeStep === 4 && renderStep5()}
       </Paper>
     </Box>
+
+    {/* Copy success snackbar */}
+    <Snackbar
+      open={!!copySuccess}
+      autoHideDuration={2000}
+      onClose={() => setCopySuccess('')}
+      message={copySuccess}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    />
     </>
   );
 }

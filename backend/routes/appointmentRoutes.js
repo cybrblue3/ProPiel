@@ -158,6 +158,68 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // ===================================
+// GET /api/appointments/doctor/today
+// Get today's appointments for logged-in doctor
+// IMPORTANT: This route must come BEFORE /:id to avoid being caught by the param route
+// ===================================
+router.get('/doctor/today', authenticateToken, async (req, res) => {
+  try {
+    // Get doctor ID from user
+    const doctor = await Doctor.findOne({
+      where: { userId: req.userId }
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor no encontrado'
+      });
+    }
+
+    // Get today's date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Get appointments
+    const appointments = await Appointment.findAll({
+      where: {
+        doctorId: doctor.id,
+        appointmentDate: todayStr,
+        status: {
+          [Op.in]: ['pending', 'confirmed', 'completed']
+        }
+      },
+      include: [
+        {
+          model: Patient,
+          attributes: ['id', 'fullName', 'phone', 'email', 'birthDate', 'gender', 'bloodType', 'allergies', 'notes']
+        },
+        {
+          model: Service,
+          attributes: ['id', 'name', 'duration']
+        }
+      ],
+      order: [['appointmentTime', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: appointments
+    });
+  } catch (error) {
+    console.error('Error fetching today appointments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener citas de hoy'
+    });
+  }
+});
+
+// ===================================
 // GET /api/appointments/:id
 // Get single appointment details (requires authentication)
 // ===================================
@@ -406,67 +468,6 @@ router.put('/:id/complete', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al completar la cita'
-    });
-  }
-});
-
-// ===================================
-// GET /api/appointments/doctor/today
-// Get today's appointments for logged-in doctor
-// ===================================
-router.get('/doctor/today', authenticateToken, async (req, res) => {
-  try {
-    // Get doctor ID from user
-    const doctor = await Doctor.findOne({
-      where: { userId: req.userId }
-    });
-
-    if (!doctor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Doctor no encontrado'
-      });
-    }
-
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const todayStr = today.toISOString().split('T')[0];
-
-    // Get appointments
-    const appointments = await Appointment.findAll({
-      where: {
-        doctorId: doctor.id,
-        appointmentDate: todayStr,
-        status: {
-          [Op.in]: ['pending', 'confirmed', 'completed']
-        }
-      },
-      include: [
-        {
-          model: Patient,
-          attributes: ['id', 'fullName', 'phone', 'email', 'birthDate', 'gender', 'bloodType', 'allergies', 'notes']
-        },
-        {
-          model: Service,
-          attributes: ['id', 'name', 'duration']
-        }
-      ],
-      order: [['appointmentTime', 'ASC']]
-    });
-
-    res.json({
-      success: true,
-      data: appointments
-    });
-  } catch (error) {
-    console.error('Error fetching today appointments:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error al obtener citas de hoy'
     });
   }
 });

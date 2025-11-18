@@ -222,17 +222,8 @@ router.patch('/appointments/:id/confirm', async (req, res) => {
       ]
     });
 
-    console.log('Appointment data for WhatsApp:', {
-      patientName: appointment.Patient?.fullName,
-      patientPhone: appointment.Patient?.phone,
-      serviceName: appointment.Service?.name,
-      appointmentDate: appointment.appointmentDate,
-      appointmentTime: appointment.appointmentTime
-    });
-
     // Generate WhatsApp notification
     const whatsappNotification = sendWhatsAppNotification(appointment, 'confirmation');
-    console.log('WhatsApp notification result:', whatsappNotification);
 
     res.json({
       success: true,
@@ -288,17 +279,8 @@ router.patch('/appointments/:id/cancel', async (req, res) => {
       ]
     });
 
-    console.log('Appointment data for WhatsApp (cancel):', {
-      patientName: appointment.Patient?.fullName,
-      patientPhone: appointment.Patient?.phone,
-      serviceName: appointment.Service?.name,
-      appointmentDate: appointment.appointmentDate,
-      appointmentTime: appointment.appointmentTime
-    });
-
     // Generate WhatsApp notification
     const whatsappNotification = sendWhatsAppNotification(appointment, 'cancellation');
-    console.log('WhatsApp notification result (cancel):', whatsappNotification);
 
     res.json({
       success: true,
@@ -628,7 +610,6 @@ router.post('/appointments/create', async (req, res) => {
     let whatsappNotification = null;
     if (depositPaid && fullAppointment.status === 'confirmed') {
       whatsappNotification = sendWhatsAppNotification(fullAppointment, 'confirmation');
-      console.log('WhatsApp notification (immediate confirm):', whatsappNotification);
     }
 
     res.status(201).json({
