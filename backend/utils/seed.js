@@ -20,17 +20,6 @@ const seedDatabase = async () => {
     });
     console.log('✅ Admin user created (username: admin, password: admin123)');
 
-    // Create receptionist user
-    const receptionistUser = await User.create({
-      username: 'receptionist',
-      email: 'receptionist@propiel.com',
-      password: 'receptionist123',
-      role: 'receptionist',
-      fullName: 'Receptionist User',
-      phone: '+527551940426'
-    });
-    console.log('✅ Receptionist user created (username: receptionist, password: receptionist123)');
-
     // Create doctor users
     const dermaUser = await User.create({
       username: 'derma',
@@ -171,7 +160,6 @@ const seedDatabase = async () => {
     console.log('\n📝 Login Credentials:');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('Admin:         username: admin       | password: admin123');
-    console.log('Receptionist:  username: receptionist| password: receptionist123');
     console.log('Doctor (Derma):username: derma       | password: derma123');
     console.log('Doctor (Podo): username: podo        | password: podo123');
     console.log('Doctor (Tamiz):username: tamiz       | password: tamiz123');

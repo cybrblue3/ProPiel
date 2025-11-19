@@ -67,37 +67,37 @@ const Layout = () => {
       text: 'Dashboard',
       icon: <DashboardIcon />,
       path: user?.role === 'doctor' ? '/doctor-dashboard' : '/dashboard',
-      roles: ['admin', 'receptionist', 'doctor']
+      roles: ['admin', 'doctor']
     },
     {
       text: 'Agendar Cita',
       icon: <AddIcon />,
       path: '/book-appointment',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Citas Pendientes',
       icon: <PendingIcon />,
       path: '/pending-appointments',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Citas',
       icon: <EventIcon />,
       path: '/appointments',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Pacientes',
       icon: <PeopleIcon />,
       path: '/patients',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Expedientes',
       icon: <FolderSharedIcon />,
       path: '/medical-records',
-      roles: ['admin', 'receptionist', 'doctor']
+      roles: ['admin', 'doctor']
     },
     {
       text: 'Doctores',

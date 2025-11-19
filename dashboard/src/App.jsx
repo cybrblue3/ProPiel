@@ -105,7 +105,7 @@ function App() {
               <Route
                 path="dashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <Dashboard />
                   </ProtectedRoute>
                 }
@@ -128,7 +128,7 @@ function App() {
               <Route
                 path="pending-appointments"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <PendingAppointments />
                   </ProtectedRoute>
                 }
@@ -136,7 +136,7 @@ function App() {
               <Route
                 path="book-appointment"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <BookAppointment />
                   </ProtectedRoute>
                 }
@@ -164,7 +164,7 @@ function App() {
               <Route
                 path="medical-records"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute allowedRoles={['admin', 'doctor']}>
                     <MedicalRecords />
                   </ProtectedRoute>
                 }

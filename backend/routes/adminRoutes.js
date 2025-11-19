@@ -5,12 +5,12 @@ const { Appointment, Patient, Doctor, Service, PaymentProof, User } = require('.
 const auth = require('../middleware/auth');
 const { sendWhatsAppNotification } = require('../utils/whatsapp');
 
-// Middleware to check admin/receptionist role
+// Middleware to check admin role
 const adminOnly = (req, res, next) => {
-  if (req.userRole !== 'admin' && req.userRole !== 'receptionist') {
+  if (req.userRole !== 'admin') {
     return res.status(403).json({
       success: false,
-      message: 'Access denied. Admin or receptionist role required.'
+      message: 'Access denied. Admin role required.'
     });
   }
   next();

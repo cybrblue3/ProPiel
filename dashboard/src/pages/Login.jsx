@@ -127,9 +127,6 @@ const Login = () => {
                 • Admin: admin / admin123
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block">
-                • Recepción: receptionist / receptionist123
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
                 • Doctor: derma / derma123
               </Typography>
             </Box>

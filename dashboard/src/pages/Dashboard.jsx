@@ -92,7 +92,6 @@ const Dashboard = () => {
         <Typography variant="body1">
           {user?.role === 'admin' && 'Panel de administración del sistema'}
           {user?.role === 'doctor' && 'Panel de consultas y pacientes'}
-          {user?.role === 'receptionist' && 'Panel de recepción y citas'}
         </Typography>
       </Paper>
 

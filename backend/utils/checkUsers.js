@@ -26,7 +26,6 @@ const checkUsers = async () => {
 
     console.log('🔐 Credenciales para login:');
     console.log('  • admin         / admin123');
-    console.log('  • receptionist  / receptionist123');
     console.log('  • derma         / derma123');
     console.log('  • podo          / podo123');
     console.log('  • tamiz         / tamiz123\n');
