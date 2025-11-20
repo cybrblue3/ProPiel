@@ -616,10 +616,9 @@ router.post('/appointments/create', uploadAdminPaymentProof, async (req, res) =>
     const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
     const paymentReference = `${prefix}-${randomHex}`;
 
-    // Determine appointment status based on payment method
-    // - efectivo: confirmed immediately (walk-in payment)
-    // - transferencia: pending (needs verification)
-    const appointmentStatus = paymentMethod === 'efectivo' ? 'confirmed' : 'pending';
+    // Admin-created appointments are always confirmed immediately
+    // Admin is already verifying payment (either cash in person or transfer proof upload)
+    const appointmentStatus = 'confirmed';
 
     // Create appointment
     const appointment = await Appointment.create({
@@ -654,11 +653,8 @@ router.post('/appointments/create', uploadAdminPaymentProof, async (req, res) =>
       ]
     });
 
-    // Send WhatsApp notification if appointment is confirmed
-    let whatsappNotification = null;
-    if (appointmentStatus === 'confirmed') {
-      whatsappNotification = sendWhatsAppNotification(fullAppointment, 'confirmation');
-    }
+    // Send WhatsApp notification (all admin-created appointments are confirmed)
+    const whatsappNotification = sendWhatsAppNotification(fullAppointment, 'confirmation');
 
     res.status(201).json({
       success: true,
