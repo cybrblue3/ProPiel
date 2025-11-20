@@ -94,5 +94,6 @@ const uploadConsentSignature = multer({
 
 module.exports = {
   uploadPaymentProof: uploadPaymentProof.single('comprobante'),
+  uploadAdminPaymentProof: uploadPaymentProof.single('paymentProof'),
   uploadConsentSignature: uploadConsentSignature.single('signature')
 };

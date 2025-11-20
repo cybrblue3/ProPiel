@@ -121,9 +121,10 @@ const BookAppointment = () => {
     doctorId: '',
     appointmentDate: '',
     appointmentTime: '',
-    paymentMethod: 'efectivo',
-    depositPaid: false
+    paymentMethod: 'efectivo'
   });
+
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
 
   const [selectedService, setSelectedService] = useState(null);
 
@@ -398,6 +399,10 @@ const BookAppointment = () => {
       setError('Por favor seleccione fecha y hora');
       return;
     }
+    if (activeStep === 3 && bookingForm.paymentMethod === 'transferencia' && !paymentProofFile) {
+      setError('Por favor sube el comprobante de pago para transferencia');
+      return;
+    }
 
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
@@ -413,29 +418,41 @@ const BookAppointment = () => {
       return;
     }
 
+    // Final validation for transferencia
+    if (bookingForm.paymentMethod === 'transferencia' && !paymentProofFile) {
+      setError('Por favor sube el comprobante de pago');
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
 
-      const appointmentData = {
-        patientId: selectedPatient.id,
-        serviceId: bookingForm.serviceId,
-        doctorId: bookingForm.doctorId,
-        appointmentDate: bookingForm.appointmentDate,
-        appointmentTime: bookingForm.appointmentTime,
-        paymentMethod: bookingForm.paymentMethod,
-        depositPaid: bookingForm.depositPaid,
-        status: bookingForm.depositPaid ? 'confirmed' : 'pending'
-      };
+      // Use FormData for file upload
+      const formData = new FormData();
+      formData.append('patientId', selectedPatient.id);
+      formData.append('serviceId', bookingForm.serviceId);
+      formData.append('doctorId', bookingForm.doctorId);
+      formData.append('appointmentDate', bookingForm.appointmentDate);
+      formData.append('appointmentTime', bookingForm.appointmentTime);
+      formData.append('paymentMethod', bookingForm.paymentMethod);
 
-      const response = await axios.post(`${API_URL}/admin/appointments/create`, appointmentData, {
-        headers: getAuthHeader()
+      // If transferencia, attach payment proof file
+      if (bookingForm.paymentMethod === 'transferencia' && paymentProofFile) {
+        formData.append('paymentProof', paymentProofFile);
+      }
+
+      const response = await axios.post(`${API_URL}/admin/appointments/create`, formData, {
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'multipart/form-data'
+        }
       });
 
       console.log('Create appointment response:', response.data);
 
       // If WhatsApp notification is available and appointment was confirmed, open it
-      if (response.data.whatsapp && response.data.whatsapp.success && bookingForm.depositPaid) {
+      if (response.data.whatsapp && response.data.whatsapp.success) {
         console.log('Opening WhatsApp:', response.data.whatsapp.url);
         // Use anchor tag click to preserve emojis (window.open corrupts them)
         const link = document.createElement('a');
@@ -666,26 +683,50 @@ const BookAppointment = () => {
                   <FormLabel component="legend">Método de Pago</FormLabel>
                   <RadioGroup
                     value={bookingForm.paymentMethod}
-                    onChange={(e) => setBookingForm({ ...bookingForm, paymentMethod: e.target.value })}
+                    onChange={(e) => {
+                      setBookingForm({ ...bookingForm, paymentMethod: e.target.value });
+                      setPaymentProofFile(null); // Reset file when changing payment method
+                    }}
                   >
-                    <FormControlLabel value="efectivo" control={<Radio />} label="Efectivo" />
-                    <FormControlLabel value="transferencia" control={<Radio />} label="Transferencia" />
+                    <FormControlLabel
+                      value="efectivo"
+                      control={<Radio />}
+                      label="Efectivo (pago en clínica)"
+                    />
+                    <FormControlLabel
+                      value="transferencia"
+                      control={<Radio />}
+                      label="Transferencia (requiere comprobante)"
+                    />
                   </RadioGroup>
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12}>
-                <FormControl component="fieldset">
-                  <FormLabel component="legend">Estado del Anticipo</FormLabel>
-                  <RadioGroup
-                    value={bookingForm.depositPaid ? 'paid' : 'pending'}
-                    onChange={(e) => setBookingForm({ ...bookingForm, depositPaid: e.target.value === 'paid' })}
-                  >
-                    <FormControlLabel value="paid" control={<Radio />} label="Anticipo pagado (confirmar cita inmediatamente)" />
-                    <FormControlLabel value="pending" control={<Radio />} label="Anticipo pendiente (cita en estado pendiente)" />
-                  </RadioGroup>
-                </FormControl>
-              </Grid>
+              {/* Payment Proof Upload - Only show for transferencia */}
+              {bookingForm.paymentMethod === 'transferencia' && (
+                <Grid item xs={12}>
+                  <Card variant="outlined" sx={{ p: 2, bgcolor: 'info.lighter' }}>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                      Comprobante de Pago
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2 }} color="text.secondary">
+                      Sube una captura de pantalla o foto de tu transferencia bancaria (JPG, PNG o PDF)
+                    </Typography>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      onChange={(e) => setPaymentProofFile(e.target.files[0])}
+                      style={{ display: 'block', marginBottom: '8px' }}
+                      id="payment-proof-upload"
+                    />
+                    {paymentProofFile && (
+                      <Typography variant="body2" sx={{ mt: 1, color: 'success.main', fontWeight: 500 }}>
+                        ✓ Archivo seleccionado: {paymentProofFile.name}
+                      </Typography>
+                    )}
+                  </Card>
+                </Grid>
+              )}
             </Grid>
           </Box>
         );

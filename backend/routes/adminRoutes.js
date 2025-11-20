@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const { Appointment, Patient, Doctor, Service, PaymentProof, User } = require('../models');
+const crypto = require('crypto');
+const { Appointment, Patient, Doctor, Service, PaymentProof, User, PaymentConfig } = require('../models');
 const auth = require('../middleware/auth');
 const { sendWhatsAppNotification } = require('../utils/whatsapp');
+const { uploadAdminPaymentProof } = require('../middleware/upload');
 
 // Middleware to check admin role
 const adminOnly = (req, res, next) => {
@@ -549,9 +551,10 @@ router.put('/services/:id', async (req, res) => {
 
 // ===================================
 // POST /api/admin/appointments/create
-// Create appointment from admin panel (receptionist booking)
+// Create appointment from admin panel
+// Handles both cash (efectivo) and transfer (transferencia) payments
 // ===================================
-router.post('/appointments/create', async (req, res) => {
+router.post('/appointments/create', uploadAdminPaymentProof, async (req, res) => {
   try {
     const {
       patientId,
@@ -559,10 +562,7 @@ router.post('/appointments/create', async (req, res) => {
       doctorId,
       appointmentDate,
       appointmentTime,
-      paymentMethod,
-      depositPaid,
-      notes,
-      status
+      paymentMethod
     } = req.body;
 
     // Validate required fields
@@ -573,7 +573,23 @@ router.post('/appointments/create', async (req, res) => {
       });
     }
 
-    // Get service details for deposit amount
+    // Validate payment method
+    if (!paymentMethod || !['efectivo', 'transferencia'].includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Método de pago inválido'
+      });
+    }
+
+    // If transferencia, payment proof is required
+    if (paymentMethod === 'transferencia' && !req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Se requiere comprobante de pago para transferencia'
+      });
+    }
+
+    // Get service details
     const service = await Service.findByPk(serviceId);
     if (!service) {
       return res.status(404).json({
@@ -582,6 +598,17 @@ router.post('/appointments/create', async (req, res) => {
       });
     }
 
+    // Generate unique payment reference
+    const paymentConfig = await PaymentConfig.findOne();
+    const prefix = paymentConfig?.referencePrefix || 'PROPIEL';
+    const randomHex = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const paymentReference = `${prefix}-${randomHex}`;
+
+    // Determine appointment status based on payment method
+    // - efectivo: confirmed immediately (walk-in payment)
+    // - transferencia: pending (needs verification)
+    const appointmentStatus = paymentMethod === 'efectivo' ? 'confirmed' : 'pending';
+
     // Create appointment
     const appointment = await Appointment.create({
       patientId,
@@ -589,26 +616,35 @@ router.post('/appointments/create', async (req, res) => {
       doctorId,
       appointmentDate,
       appointmentTime,
-      depositAmount: service.depositAmount,
-      paymentMethod: paymentMethod || 'efectivo',
-      depositPaid: depositPaid || false,
-      notes: notes || null,
-      status: status || (depositPaid ? 'confirmed' : 'pending'),
-      createdBy: req.userId
+      paymentReference,
+      status: appointmentStatus
     });
+
+    // If transferencia with payment proof, save it
+    if (paymentMethod === 'transferencia' && req.file) {
+      await PaymentProof.create({
+        appointmentId: appointment.id,
+        filename: req.file.originalname,
+        filepath: req.file.path,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        uploadedAt: new Date()
+      });
+    }
 
     // Load related data
     const fullAppointment = await Appointment.findByPk(appointment.id, {
       include: [
         { model: Patient, attributes: ['id', 'fullName', 'phone', 'phoneCountryCode', 'email'] },
         { model: Service, attributes: ['id', 'name', 'price', 'depositAmount'] },
-        { model: Doctor, attributes: ['id', 'fullName', 'specialty'] }
+        { model: Doctor, attributes: ['id', 'fullName', 'specialty'] },
+        { model: PaymentProof, attributes: ['id', 'filename', 'uploadedAt'] }
       ]
     });
 
-    // If appointment was confirmed immediately, send WhatsApp notification
+    // Send WhatsApp notification if appointment is confirmed
     let whatsappNotification = null;
-    if (depositPaid && fullAppointment.status === 'confirmed') {
+    if (appointmentStatus === 'confirmed') {
       whatsappNotification = sendWhatsAppNotification(fullAppointment, 'confirmation');
     }
 
