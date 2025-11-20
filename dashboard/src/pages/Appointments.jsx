@@ -74,6 +74,7 @@ const Appointments = () => {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -108,6 +109,11 @@ const Appointments = () => {
         page: page + 1,
         limit: rowsPerPage
       };
+
+      // Apply search term
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
+      }
 
       // Apply tab filter
       if (activeTab === 1) {
@@ -152,10 +158,20 @@ const Appointments = () => {
     }
   };
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(0); // Reset to first page when searching
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     loadAppointments();
     loadCounts();
-  }, [page, rowsPerPage, activeTab, dateFilter, startDate, endDate]);
+  }, [page, rowsPerPage, activeTab, dateFilter, startDate, endDate, debouncedSearchTerm]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -320,18 +336,6 @@ const Appointments = () => {
     }
     return {};
   };
-
-  // Filter appointments by search term
-  const filteredAppointments = appointments.filter(appointment => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      appointment.Patient?.fullName?.toLowerCase().includes(search) ||
-      appointment.Patient?.phone?.includes(search) ||
-      appointment.Service?.name?.toLowerCase().includes(search) ||
-      appointment.Doctor?.fullName?.toLowerCase().includes(search)
-    );
-  });
 
   return (
     <Box>
@@ -544,7 +548,7 @@ const Appointments = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAppointments.length === 0 ? (
+                {appointments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
@@ -553,7 +557,7 @@ const Appointments = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAppointments.map((appointment) => (
+                  appointments.map((appointment) => (
                     <TableRow
                       key={appointment.id}
                       hover

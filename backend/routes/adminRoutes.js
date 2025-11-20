@@ -28,7 +28,7 @@ router.use(adminOnly);
 // ===================================
 router.get('/appointments', async (req, res) => {
   try {
-    const { status, date, startDate, endDate, page = 1, limit = 50 } = req.query;
+    const { status, date, startDate, endDate, search, page = 1, limit = 50 } = req.query;
 
     // Build where clause
     const where = {};
@@ -43,6 +43,16 @@ router.get('/appointments', async (req, res) => {
       where.appointmentDate = {};
       if (startDate) where.appointmentDate[Op.gte] = startDate;
       if (endDate) where.appointmentDate[Op.lte] = endDate;
+    }
+
+    // Add search filter if provided
+    if (search) {
+      where[Op.or] = [
+        { '$Patient.fullName$': { [Op.like]: `%${search}%` } },
+        { '$Patient.phone$': { [Op.like]: `%${search}%` } },
+        { '$Doctor.fullName$': { [Op.like]: `%${search}%` } },
+        { '$Service.name$': { [Op.like]: `%${search}%` } }
+      ];
     }
 
     const offset = (page - 1) * limit;
@@ -69,7 +79,9 @@ router.get('/appointments', async (req, res) => {
       ],
       order: [['appointmentDate', 'DESC'], ['appointmentTime', 'DESC']],
       limit: parseInt(limit),
-      offset
+      offset,
+      distinct: true,
+      subQuery: false
     });
 
     res.json({
