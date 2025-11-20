@@ -556,6 +556,11 @@ router.put('/services/:id', async (req, res) => {
 // ===================================
 router.post('/appointments/create', uploadAdminPaymentProof, async (req, res) => {
   try {
+    // Debug logging
+    console.log('=== APPOINTMENT CREATE REQUEST ===');
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file);
+
     const {
       patientId,
       serviceId,
@@ -567,6 +572,13 @@ router.post('/appointments/create', uploadAdminPaymentProof, async (req, res) =>
 
     // Validate required fields
     if (!patientId || !serviceId || !doctorId || !appointmentDate || !appointmentTime) {
+      console.log('Validation failed - missing fields:', {
+        patientId: !!patientId,
+        serviceId: !!serviceId,
+        doctorId: !!doctorId,
+        appointmentDate: !!appointmentDate,
+        appointmentTime: !!appointmentTime
+      });
       return res.status(400).json({
         success: false,
         message: 'Todos los campos requeridos deben ser completados'
