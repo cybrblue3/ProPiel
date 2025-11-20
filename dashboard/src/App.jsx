@@ -7,7 +7,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import LogoShowcase from './pages/LogoShowcase';
-import PendingAppointments from './pages/PendingAppointments';
 import Appointments from './pages/Appointments';
 import BookAppointment from './pages/BookAppointment';
 import Patients from './pages/Patients';
@@ -124,14 +123,6 @@ function App() {
               <Route
                 path="appointments"
                 element={<Appointments />}
-              />
-              <Route
-                path="pending-appointments"
-                element={
-                  <ProtectedRoute allowedRoles={['admin']}>
-                    <PendingAppointments />
-                  </ProtectedRoute>
-                }
               />
               <Route
                 path="book-appointment"

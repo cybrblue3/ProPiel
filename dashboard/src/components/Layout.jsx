@@ -27,7 +27,6 @@ import {
   FolderShared as FolderSharedIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
-  HourglassEmpty as PendingIcon,
   Settings as SettingsIcon,
   AddCircle as AddIcon
 } from '@mui/icons-material';
@@ -73,12 +72,6 @@ const Layout = () => {
       text: 'Agendar Cita',
       icon: <AddIcon />,
       path: '/book-appointment',
-      roles: ['admin']
-    },
-    {
-      text: 'Citas Pendientes',
-      icon: <PendingIcon />,
-      path: '/pending-appointments',
       roles: ['admin']
     },
     {
