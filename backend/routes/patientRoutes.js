@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Patient, Appointment, Service, Doctor } = require('../models');
+const { Patient, Appointment, Service, Doctor, MedicalCase, Prescription, Photo, PaymentProof } = require('../models');
 const auth = require('../middleware/auth');
 
 // Apply auth middleware to all patient routes
@@ -123,6 +123,150 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al crear paciente',
+      error: error.message
+    });
+  }
+});
+
+// ===================================
+// GET /api/patients/:id/medical-history
+// Get complete medical history for a patient
+// ===================================
+router.get('/:id/medical-history', async (req, res) => {
+  try {
+    const patientId = req.params.id;
+
+    // Verify patient exists
+    const patient = await Patient.findByPk(patientId);
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Paciente no encontrado'
+      });
+    }
+
+    // Get all appointments for this patient
+    const appointments = await Appointment.findAll({
+      where: { patientId },
+      include: [
+        {
+          model: Doctor,
+          attributes: ['id', 'fullName', 'specialty']
+        },
+        {
+          model: Service,
+          attributes: ['id', 'name', 'price', 'duration']
+        },
+        {
+          model: PaymentProof,
+          attributes: ['id', 'filename', 'uploadedAt']
+        }
+      ],
+      order: [['appointmentDate', 'DESC'], ['appointmentTime', 'DESC']]
+    });
+
+    // Get all medical cases for this patient
+    const medicalCases = await MedicalCase.findAll({
+      where: { patientId },
+      include: [
+        {
+          model: Doctor,
+          attributes: ['id', 'fullName', 'specialty']
+        },
+        {
+          model: Prescription,
+          separate: true,
+          order: [['prescribedDate', 'DESC']]
+        },
+        {
+          model: Photo,
+          separate: true,
+          order: [['uploadDate', 'DESC']]
+        }
+      ],
+      order: [['startDate', 'DESC']]
+    });
+
+    // Get all prescriptions for this patient (across all cases)
+    const allPrescriptions = await Prescription.findAll({
+      include: [
+        {
+          model: MedicalCase,
+          where: { patientId },
+          attributes: ['id', 'conditionName', 'status'],
+          include: [
+            {
+              model: Doctor,
+              attributes: ['id', 'fullName']
+            }
+          ]
+        },
+        {
+          model: Appointment,
+          required: false,
+          attributes: ['id', 'appointmentDate', 'appointmentTime']
+        }
+      ],
+      order: [['prescribedDate', 'DESC']]
+    });
+
+    // Create timeline (combined appointments and cases)
+    const timeline = [];
+
+    // Add appointments to timeline
+    appointments.forEach(apt => {
+      timeline.push({
+        type: 'appointment',
+        date: apt.appointmentDate,
+        time: apt.appointmentTime,
+        data: apt
+      });
+    });
+
+    // Add medical case start dates to timeline
+    medicalCases.forEach(medCase => {
+      timeline.push({
+        type: 'case_started',
+        date: medCase.startDate,
+        data: medCase
+      });
+
+      // Add case end dates if they exist
+      if (medCase.endDate) {
+        timeline.push({
+          type: 'case_ended',
+          date: medCase.endDate,
+          data: medCase
+        });
+      }
+    });
+
+    // Sort timeline by date (most recent first)
+    timeline.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      if (dateB - dateA !== 0) return dateB - dateA;
+      // If same date, prioritize appointments (they have time)
+      if (a.time && !b.time) return -1;
+      if (!a.time && b.time) return 1;
+      return 0;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        patient,
+        appointments,
+        medicalCases,
+        prescriptions: allPrescriptions,
+        timeline
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching patient medical history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener historial médico',
       error: error.message
     });
   }
