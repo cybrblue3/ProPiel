@@ -19,15 +19,17 @@ import {
   Alert,
   CircularProgress,
   Button,
+  Divider
+} from '@mui/material';
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
   TimelineConnector,
   TimelineContent,
   TimelineDot,
-  TimelineOppositeContent,
-  Divider
-} from '@mui/material';
+  TimelineOppositeContent
+} from '@mui/lab';
 import {
   ArrowBack as BackIcon,
   Event as EventIcon,
