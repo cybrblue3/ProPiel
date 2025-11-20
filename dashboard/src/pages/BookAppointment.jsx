@@ -670,7 +670,6 @@ const BookAppointment = () => {
                   >
                     <FormControlLabel value="efectivo" control={<Radio />} label="Efectivo" />
                     <FormControlLabel value="transferencia" control={<Radio />} label="Transferencia" />
-                    <FormControlLabel value="tarjeta" control={<Radio />} label="Tarjeta" />
                   </RadioGroup>
                 </FormControl>
               </Grid>
