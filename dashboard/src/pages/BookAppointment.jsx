@@ -122,8 +122,7 @@ const BookAppointment = () => {
     appointmentDate: '',
     appointmentTime: '',
     paymentMethod: 'efectivo',
-    depositPaid: false,
-    notes: ''
+    depositPaid: false
   });
 
   const [selectedService, setSelectedService] = useState(null);
@@ -426,7 +425,6 @@ const BookAppointment = () => {
         appointmentTime: bookingForm.appointmentTime,
         paymentMethod: bookingForm.paymentMethod,
         depositPaid: bookingForm.depositPaid,
-        notes: bookingForm.notes,
         status: bookingForm.depositPaid ? 'confirmed' : 'pending'
       };
 
@@ -637,21 +635,6 @@ const BookAppointment = () => {
                 )}
               </Box>
             </Box>
-
-            <Grid container spacing={2} sx={{ mt: 2 }}>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notas adicionales"
-                  multiline
-                  rows={3}
-                  value={bookingForm.notes}
-                  onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
-                  placeholder="Motivo de la consulta, observaciones, etc."
-                />
-              </Grid>
-            </Grid>
           </Box>
         );
 
