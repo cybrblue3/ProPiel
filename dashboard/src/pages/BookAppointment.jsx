@@ -49,7 +49,7 @@ const getAuthHeader = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
-const steps = ['Paciente', 'Doctor', 'Fecha y Hora', 'Pago'];
+const steps = ['Paciente', 'Doctor y Servicio', 'Fecha y Hora', 'Pago'];
 
 // Country codes for phone numbers (Mexico first, then alphabetical)
 const COUNTRY_CODES = [
@@ -161,13 +161,6 @@ const BookAppointment = () => {
       });
       const activeServices = response.data.data?.filter(s => s.isActive) || [];
       setServices(activeServices);
-
-      // Auto-select first service if available
-      if (activeServices.length > 0 && !bookingForm.serviceId) {
-        const firstService = activeServices[0];
-        setSelectedService(firstService);
-        setBookingForm(prev => ({ ...prev, serviceId: firstService.id }));
-      }
     } catch (err) {
       console.error('Error loading services:', err);
     }
@@ -373,13 +366,18 @@ const BookAppointment = () => {
   };
 
   const handleDoctorChange = (doctorId) => {
-    // Auto-select the first active service when doctor is selected
-    const firstService = services.length > 0 ? services[0] : null;
-    setSelectedService(firstService);
     setBookingForm({
       ...bookingForm,
-      doctorId,
-      serviceId: firstService ? firstService.id : ''
+      doctorId
+    });
+  };
+
+  const handleServiceChange = (serviceId) => {
+    const service = services.find(s => s.id == serviceId);
+    setSelectedService(service);
+    setBookingForm({
+      ...bookingForm,
+      serviceId
     });
   };
 
@@ -527,12 +525,12 @@ const BookAppointment = () => {
         );
 
       case 1:
-        // Doctor Selection
+        // Doctor and Service Selection
         return (
           <Box sx={{ maxWidth: 700, mx: 'auto' }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <ServiceIcon color="primary" />
-              Seleccionar Doctor
+              Seleccionar Doctor y Servicio
             </Typography>
 
             <FormControl fullWidth sx={{ mb: 3 }}>
@@ -564,12 +562,40 @@ const BookAppointment = () => {
               </Select>
             </FormControl>
 
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>Servicio</InputLabel>
+              <Select
+                value={bookingForm.serviceId}
+                label="Servicio"
+                onChange={(e) => handleServiceChange(e.target.value)}
+                sx={{
+                  '& .MuiSelect-select': {
+                    py: 2
+                  }
+                }}
+              >
+                {services.map((service) => (
+                  <MenuItem key={service.id} value={service.id} sx={{ py: 1.5 }}>
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {service.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        ${service.price} - {service.duration} min
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             {bookingForm.doctorId && selectedService && (
               <Card variant="outlined" sx={{ bgcolor: 'primary.lighter', p: 2 }}>
                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                  Detalles del Servicio
+                  Resumen
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Typography><strong>Doctor:</strong> {doctors.find(d => d.id == bookingForm.doctorId)?.fullName}</Typography>
                   <Typography><strong>Servicio:</strong> {selectedService.name}</Typography>
                   <Typography><strong>Precio:</strong> ${selectedService.price}</Typography>
                   <Typography><strong>Anticipo requerido:</strong> ${selectedService.depositAmount} ({selectedService.depositPercentage}%)</Typography>
