@@ -60,7 +60,7 @@ router.get('/appointments', async (req, res) => {
         },
         {
           model: Service,
-          attributes: ['id', 'name', 'price']
+          attributes: ['id', 'name', 'price', 'depositAmount', 'depositPercentage', 'duration']
         },
         {
           model: PaymentProof,
@@ -113,7 +113,7 @@ router.get('/appointments/pending', async (req, res) => {
         },
         {
           model: Service,
-          attributes: ['id', 'name', 'price', 'depositPercentage']
+          attributes: ['id', 'name', 'price', 'depositAmount', 'depositPercentage', 'duration']
         },
         {
           model: PaymentProof,
@@ -154,7 +154,7 @@ router.get('/appointments/:id', async (req, res) => {
         },
         {
           model: Service,
-          attributes: ['id', 'name', 'price', 'depositAmount', 'duration']
+          attributes: ['id', 'name', 'price', 'depositAmount', 'depositPercentage', 'duration']
         },
         {
           model: PaymentProof,
