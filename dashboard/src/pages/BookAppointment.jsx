@@ -49,7 +49,7 @@ const getAuthHeader = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
-const steps = ['Paciente', 'Doctor y Servicio', 'Fecha y Hora', 'Pago'];
+const steps = ['Paciente', 'Doctor', 'Fecha y Hora', 'Pago'];
 
 // Country codes for phone numbers (Mexico first, then alphabetical)
 const COUNTRY_CODES = [
@@ -366,10 +366,34 @@ const BookAppointment = () => {
   };
 
   const handleDoctorChange = (doctorId) => {
-    setBookingForm({
-      ...bookingForm,
-      doctorId
-    });
+    const doctor = doctors.find(d => d.id == doctorId);
+
+    // Auto-select service based on doctor's specialty
+    if (doctor && doctor.specialty) {
+      const matchingService = services.find(s =>
+        s.name.toLowerCase() === doctor.specialty.toLowerCase()
+      );
+
+      if (matchingService) {
+        setSelectedService(matchingService);
+        setBookingForm({
+          ...bookingForm,
+          doctorId,
+          serviceId: matchingService.id
+        });
+      } else {
+        // No matching service found, just set doctor
+        setBookingForm({
+          ...bookingForm,
+          doctorId
+        });
+      }
+    } else {
+      setBookingForm({
+        ...bookingForm,
+        doctorId
+      });
+    }
   };
 
   const handleServiceChange = (serviceId) => {
@@ -525,12 +549,12 @@ const BookAppointment = () => {
         );
 
       case 1:
-        // Doctor and Service Selection
+        // Doctor Selection (Service auto-selected based on specialty)
         return (
           <Box sx={{ maxWidth: 700, mx: 'auto' }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <ServiceIcon color="primary" />
-              Seleccionar Doctor y Servicio
+              Seleccionar Doctor
             </Typography>
 
             <FormControl fullWidth sx={{ mb: 3 }}>
@@ -556,33 +580,6 @@ const BookAppointment = () => {
                           {doctor.specialty}
                         </Typography>
                       )}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Servicio</InputLabel>
-              <Select
-                value={bookingForm.serviceId}
-                label="Servicio"
-                onChange={(e) => handleServiceChange(e.target.value)}
-                sx={{
-                  '& .MuiSelect-select': {
-                    py: 2
-                  }
-                }}
-              >
-                {services.map((service) => (
-                  <MenuItem key={service.id} value={service.id} sx={{ py: 1.5 }}>
-                    <Box>
-                      <Typography variant="body1" fontWeight="medium">
-                        {service.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        ${service.price} - {service.duration} min
-                      </Typography>
                     </Box>
                   </MenuItem>
                 ))}
