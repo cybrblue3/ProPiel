@@ -588,6 +588,14 @@ const Patients = () => {
                         </IconButton>
                         <IconButton
                           size="small"
+                          color="secondary"
+                          onClick={() => navigate(`/patients/${patient.id}/medical-history`)}
+                          title="Ver historial médico"
+                        >
+                          <HistoryIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
                           color="primary"
                           onClick={() => handleEditClick(patient)}
                           title="Editar"

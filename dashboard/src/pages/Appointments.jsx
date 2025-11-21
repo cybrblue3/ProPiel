@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -37,11 +38,13 @@ import {
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
   WhatsApp as WhatsAppIcon,
-  AttachFile as AttachIcon
+  AttachFile as AttachIcon,
+  FolderShared as HistoryIcon
 } from '@mui/icons-material';
 import { adminAPI } from '../services/api';
 
 const Appointments = () => {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -617,6 +620,14 @@ const Appointments = () => {
                           title="Ver detalles"
                         >
                           <ViewIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="secondary"
+                          onClick={() => navigate(`/patients/${appointment.patientId}/medical-history`)}
+                          title="Ver historial médico"
+                        >
+                          <HistoryIcon />
                         </IconButton>
 
                         {appointment.status === 'pending' && (
