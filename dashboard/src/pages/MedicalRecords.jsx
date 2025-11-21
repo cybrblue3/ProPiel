@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -33,7 +34,8 @@ import {
   LocalHospital as MedicalIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  FolderShared as HistoryIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -58,6 +60,7 @@ const formatDate = (dateString) => {
 };
 
 function MedicalRecords() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -649,6 +652,14 @@ function MedicalRecords() {
                       title="Ver detalles"
                     >
                       <VisibilityIcon />
+                    </IconButton>
+                    <IconButton
+                      color="info"
+                      onClick={() => navigate(`/patients/${medicalCase.patientId}/medical-history`)}
+                      size="small"
+                      title="Ver historial médico completo"
+                    >
+                      <HistoryIcon />
                     </IconButton>
                     <IconButton
                       color="secondary"
