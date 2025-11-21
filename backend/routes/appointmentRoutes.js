@@ -220,6 +220,58 @@ router.get('/doctor/today', authenticateToken, async (req, res) => {
 });
 
 // ===================================
+// GET /api/appointments/doctor/all
+// Get ALL appointments for logged-in doctor (for "Mis Pacientes" page)
+// ===================================
+router.get('/doctor/all', authenticateToken, async (req, res) => {
+  try {
+    // Get doctor ID from user
+    const doctor = await Doctor.findOne({
+      where: { userId: req.userId }
+    });
+
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor no encontrado'
+      });
+    }
+
+    // Get ALL appointments for this doctor
+    const appointments = await Appointment.findAll({
+      where: {
+        doctorId: doctor.id,
+        status: {
+          [Op.in]: ['pending', 'confirmed', 'completed']
+        }
+      },
+      include: [
+        {
+          model: Patient,
+          attributes: ['id', 'fullName', 'phone', 'email', 'birthDate', 'gender', 'bloodType', 'allergies', 'notes']
+        },
+        {
+          model: Service,
+          attributes: ['id', 'name', 'duration']
+        }
+      ],
+      order: [['appointmentDate', 'DESC'], ['appointmentTime', 'ASC']]
+    });
+
+    res.json({
+      success: true,
+      data: appointments
+    });
+  } catch (error) {
+    console.error('Error fetching all doctor appointments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener citas del doctor'
+    });
+  }
+});
+
+// ===================================
 // GET /api/appointments/:id
 // Get single appointment details (requires authentication)
 // ===================================

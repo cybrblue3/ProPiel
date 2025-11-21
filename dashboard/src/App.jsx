@@ -14,6 +14,7 @@ import Doctors from './pages/Doctors';
 import Settings from './pages/Settings';
 import MedicalRecords from './pages/MedicalRecords';
 import PatientMedicalHistory from './pages/PatientMedicalHistory';
+import DoctorPatients from './pages/DoctorPatients';
 
 // Smart redirect based on user role
 function DashboardRedirect() {
@@ -115,6 +116,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['doctor']}>
                     <DoctorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="doctor-patients"
+                element={
+                  <ProtectedRoute allowedRoles={['doctor']}>
+                    <DoctorPatients />
                   </ProtectedRoute>
                 }
               />

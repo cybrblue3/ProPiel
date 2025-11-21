@@ -62,11 +62,25 @@ const Layout = () => {
 
   // Menu items based on role
   const menuItems = [
+    // DOCTOR MENU ITEMS
     {
-      text: 'Dashboard',
+      text: 'Mi Agenda',
       icon: <DashboardIcon />,
-      path: user?.role === 'doctor' ? '/doctor-dashboard' : '/dashboard',
-      roles: ['admin', 'doctor']
+      path: '/doctor-dashboard',
+      roles: ['doctor']
+    },
+    {
+      text: 'Mis Pacientes',
+      icon: <PeopleIcon />,
+      path: '/doctor-patients',
+      roles: ['doctor']
+    },
+    // ADMIN MENU ITEMS
+    {
+      text: 'Recepción',
+      icon: <DashboardIcon />,
+      path: '/dashboard',
+      roles: ['admin']
     },
     {
       text: 'Agendar Cita',
@@ -90,7 +104,7 @@ const Layout = () => {
       text: 'Expedientes',
       icon: <FolderSharedIcon />,
       path: '/medical-records',
-      roles: ['admin', 'doctor']
+      roles: ['admin']
     },
     {
       text: 'Doctores',
