@@ -423,4 +423,258 @@ async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
   });
 }
 
-module.exports = { generateConsentPDF, generatePrescriptionPDF };
+/**
+ * Generate an appointment receipt PDF
+ * @param {Object} appointmentData - Appointment, patient, and service information
+ * @param {string} outputPdfPath - Path where the PDF will be saved
+ * @returns {Promise<string>} - Returns the output PDF path
+ */
+async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'letter', margin: 50 });
+      const stream = fs.createWriteStream(outputPdfPath);
+      doc.pipe(stream);
+
+      // Header with clinic info
+      doc
+        .fontSize(24)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('CLÍNICA PROPIEL', { align: 'center' })
+        .moveDown(0.3);
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text('Especialistas en Dermatología', { align: 'center' })
+        .moveDown(0.5);
+
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text('COMPROBANTE DE CITA', { align: 'center' })
+        .moveDown(1);
+
+      // Confirmation number box
+      const confirmBoxY = doc.y;
+      doc
+        .rect(150, confirmBoxY, 312, 50)
+        .fillAndStroke('#e3f2fd', '#1976d2');
+
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .fillColor('#1976d2')
+        .text('No. de Confirmación', 150, confirmBoxY + 10, { width: 312, align: 'center' });
+
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .text(`#${appointmentData.appointmentId}`, 150, confirmBoxY + 28, { width: 312, align: 'center' });
+
+      doc.y = confirmBoxY + 70;
+      doc.moveDown(1);
+
+      // Status badge
+      const statusColors = {
+        pending: { bg: '#fff3e0', text: '#e65100', label: 'PENDIENTE' },
+        confirmed: { bg: '#e8f5e9', text: '#2e7d32', label: 'CONFIRMADA' },
+        completed: { bg: '#e3f2fd', text: '#1565c0', label: 'COMPLETADA' },
+        cancelled: { bg: '#ffebee', text: '#c62828', label: 'CANCELADA' }
+      };
+
+      const status = statusColors[appointmentData.status] || statusColors.pending;
+
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor(status.text)
+        .text(`Estado: ${status.label}`, { align: 'center' })
+        .moveDown(1.5);
+
+      // Horizontal line
+      doc
+        .strokeColor('#e0e0e0')
+        .lineWidth(1)
+        .moveTo(50, doc.y)
+        .lineTo(562, doc.y)
+        .stroke()
+        .moveDown(1);
+
+      // Appointment Details Section
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('DETALLES DE LA CITA')
+        .moveDown(0.5);
+
+      // Two-column layout for details
+      const detailsY = doc.y;
+      const leftCol = 50;
+      const rightCol = 300;
+
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text('Fecha:', leftCol, detailsY);
+      doc
+        .font('Helvetica')
+        .text(appointmentData.appointmentDate, leftCol + 80, detailsY);
+
+      doc
+        .font('Helvetica-Bold')
+        .text('Hora:', rightCol, detailsY);
+      doc
+        .font('Helvetica')
+        .text(appointmentData.appointmentTime, rightCol + 80, detailsY);
+
+      doc.y = detailsY + 25;
+
+      doc
+        .font('Helvetica-Bold')
+        .text('Servicio:', leftCol, doc.y);
+      doc
+        .font('Helvetica')
+        .text(appointmentData.serviceName, leftCol + 80, doc.y);
+
+      doc.y += 25;
+
+      doc
+        .font('Helvetica-Bold')
+        .text('Duración:', leftCol, doc.y);
+      doc
+        .font('Helvetica')
+        .text(`${appointmentData.serviceDuration || 30} minutos`, leftCol + 80, doc.y);
+
+      doc.y += 25;
+
+      doc
+        .font('Helvetica-Bold')
+        .text('Doctor:', leftCol, doc.y);
+      doc
+        .font('Helvetica')
+        .text(`Dr. ${appointmentData.doctorName}`, leftCol + 80, doc.y);
+
+      if (appointmentData.doctorSpecialty) {
+        doc.y += 15;
+        doc
+          .fontSize(10)
+          .fillColor('#666666')
+          .text(appointmentData.doctorSpecialty, leftCol + 80, doc.y);
+      }
+
+      doc.y += 35;
+
+      // Horizontal line
+      doc
+        .strokeColor('#e0e0e0')
+        .lineWidth(1)
+        .moveTo(50, doc.y)
+        .lineTo(562, doc.y)
+        .stroke()
+        .moveDown(1);
+
+      // Patient Information Section
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('DATOS DEL PACIENTE')
+        .moveDown(0.5);
+
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text('Nombre:', leftCol, doc.y);
+      doc
+        .font('Helvetica')
+        .text(appointmentData.patientName, leftCol + 80, doc.y);
+
+      doc.y += 20;
+
+      if (appointmentData.patientPhone) {
+        doc
+          .font('Helvetica-Bold')
+          .text('Teléfono:', leftCol, doc.y);
+        doc
+          .font('Helvetica')
+          .text(appointmentData.patientPhone, leftCol + 80, doc.y);
+        doc.y += 20;
+      }
+
+      if (appointmentData.patientEmail) {
+        doc
+          .font('Helvetica-Bold')
+          .text('Email:', leftCol, doc.y);
+        doc
+          .font('Helvetica')
+          .text(appointmentData.patientEmail, leftCol + 80, doc.y);
+        doc.y += 20;
+      }
+
+      doc.y += 20;
+
+      // Important notes box
+      doc
+        .rect(50, doc.y, 512, 80)
+        .fillAndStroke('#fff8e1', '#ffc107');
+
+      doc.y += 15;
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#f57c00')
+        .text('RECORDATORIO IMPORTANTE', 70, doc.y)
+        .moveDown(0.5);
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#333333')
+        .text('• Por favor llegue 10 minutos antes de su cita', 70)
+        .text('• Traiga este comprobante impreso o en su celular', 70)
+        .text('• En caso de no poder asistir, cancele con 24 horas de anticipación', 70);
+
+      doc.y += 40;
+
+      // Footer
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .fillColor('#999999')
+        .text(
+          `Documento generado el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+          50,
+          doc.page.height - 70,
+          { align: 'center', width: 512 }
+        )
+        .text(
+          'Clínica ProPiel - Sistema de Reservas en Línea',
+          50,
+          doc.page.height - 50,
+          { align: 'center', width: 512 }
+        );
+
+      doc.end();
+
+      stream.on('finish', () => {
+        resolve(outputPdfPath);
+      });
+
+      stream.on('error', (err) => {
+        reject(err);
+      });
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = { generateConsentPDF, generatePrescriptionPDF, generateAppointmentReceiptPDF };

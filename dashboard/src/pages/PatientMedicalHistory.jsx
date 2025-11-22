@@ -199,6 +199,30 @@ const PatientMedicalHistory = () => {
     }
   };
 
+  // Handle appointment receipt PDF download
+  const handleDownloadAppointmentReceipt = async (appointmentId) => {
+    try {
+      const response = await axios.get(`${API_URL}/appointments/${appointmentId}/pdf`, {
+        headers: getAuthHeader(),
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `comprobante_cita_${appointmentId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage('Comprobante descargado exitosamente');
+    } catch (err) {
+      console.error('Error downloading appointment receipt:', err);
+      setError('Error al descargar el comprobante');
+    }
+  };
+
   // Handle prescription PDF download
   const handleDownloadPrescription = async (prescriptionId) => {
     try {
@@ -403,6 +427,7 @@ const PatientMedicalHistory = () => {
               <TableCell>Servicio</TableCell>
               <TableCell>Doctor</TableCell>
               <TableCell>Estado</TableCell>
+              <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -426,6 +451,17 @@ const PatientMedicalHistory = () => {
                   </Typography>
                 </TableCell>
                 <TableCell>{getStatusChip(apt.status)}</TableCell>
+                <TableCell align="center">
+                  <Tooltip title="Descargar comprobante">
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleDownloadAppointmentReceipt(apt.id)}
+                    >
+                      <PrintIcon />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

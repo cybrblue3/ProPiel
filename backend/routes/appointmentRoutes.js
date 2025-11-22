@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const { Op } = require('sequelize');
 
 // Models
@@ -16,6 +18,7 @@ const authenticateToken = require('../middleware/auth');
 
 // Utils
 const { sendWhatsAppNotification } = require('../utils/whatsapp');
+const { generateAppointmentReceiptPDF } = require('../utils/pdfGenerator');
 
 // ===================================
 // GET /api/appointments/pending
@@ -593,6 +596,91 @@ router.patch('/:id/complete', authenticateToken, async (req, res) => {
       success: false,
       message: 'Error al completar la cita'
     });
+  }
+});
+
+// ===================================
+// GET /api/appointments/:id/pdf
+// Generate and download appointment receipt PDF
+// ===================================
+router.get('/:id/pdf', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find appointment with all related data
+    const appointment = await Appointment.findByPk(id, {
+      include: [
+        { model: Patient, attributes: ['id', 'fullName', 'phone', 'email'] },
+        { model: Doctor, attributes: ['id', 'fullName', 'specialty'] },
+        { model: Service, attributes: ['id', 'name', 'duration'] }
+      ]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+    }
+
+    // Format date
+    const formatDate = (date) => {
+      if (!date) return 'N/A';
+      return new Date(date).toLocaleDateString('es-MX', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+
+    // Format time
+    const formatTime = (time) => {
+      if (!time) return 'N/A';
+      return time.substring(0, 5);
+    };
+
+    // Prepare data for PDF
+    const appointmentData = {
+      appointmentId: appointment.id,
+      status: appointment.status,
+      appointmentDate: formatDate(appointment.appointmentDate),
+      appointmentTime: formatTime(appointment.appointmentTime),
+      serviceName: appointment.Service?.name,
+      serviceDuration: appointment.Service?.duration,
+      doctorName: appointment.Doctor?.fullName,
+      doctorSpecialty: appointment.Doctor?.specialty,
+      patientName: appointment.Patient?.fullName,
+      patientPhone: appointment.Patient?.phone,
+      patientEmail: appointment.Patient?.email
+    };
+
+    // Create uploads/pdfs directory if it doesn't exist
+    const pdfDir = path.join(__dirname, '../uploads/pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    // Generate PDF
+    const fileName = `comprobante_cita_${appointment.id}_${Date.now()}.pdf`;
+    const outputPath = path.join(pdfDir, fileName);
+
+    await generateAppointmentReceiptPDF(appointmentData, outputPath);
+
+    // Send the PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    const fileStream = fs.createReadStream(outputPath);
+    fileStream.pipe(res);
+
+    // Clean up the file after sending
+    fileStream.on('end', () => {
+      fs.unlink(outputPath, (err) => {
+        if (err) console.error('Error deleting temp PDF:', err);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error generating appointment PDF:', error);
+    res.status(500).json({ success: false, message: 'Error al generar el PDF' });
   }
 });
 
