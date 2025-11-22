@@ -20,7 +20,10 @@ import {
   Alert,
   CircularProgress,
   Button,
-  Divider
+  Divider,
+  IconButton,
+  Tooltip,
+  Avatar
 } from '@mui/material';
 import {
   Timeline,
@@ -36,7 +39,14 @@ import {
   Event as EventIcon,
   LocalHospital as CaseIcon,
   Medication as MedicationIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  Phone as PhoneIcon,
+  Email as EmailIcon,
+  Cake as CakeIcon,
+  PhotoCamera as PhotoIcon,
+  Add as AddIcon,
+  Description as DescriptionIcon,
+  Print as PrintIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -451,80 +461,219 @@ const PatientMedicalHistory = () => {
     );
   }
 
+  // Calculate age
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return 'N/A';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return `${age} años`;
+  };
+
+  // Get patient initials for avatar
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
+
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+      {/* Header with Back Button */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
         <Button
           startIcon={<BackIcon />}
           onClick={() => navigate(-1)}
           variant="outlined"
+          size="small"
         >
           Volver
         </Button>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h4">
-            <PersonIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
-            Historial Médico
-          </Typography>
-          <Typography variant="h6" color="text.secondary">
-            {patient.fullName}
-          </Typography>
-        </Box>
+        <Typography variant="h5" fontWeight="bold" color="primary">
+          Expediente del Paciente
+        </Typography>
       </Box>
 
-      {/* Patient Info Card */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Edad:</strong> {patient.birthDate ?
-                  `${Math.floor((new Date() - new Date(patient.birthDate)) / 31557600000)} años` :
-                  'N/A'
-                }
-              </Typography>
+      {/* Patient Profile Card */}
+      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)' }}>
+        <CardContent sx={{ color: 'white' }}>
+          <Grid container spacing={3} alignItems="center">
+            {/* Avatar and Name */}
+            <Grid item xs={12} md={4}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar sx={{ width: 80, height: 80, bgcolor: 'white', color: 'primary.main', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                  {getInitials(patient.fullName)}
+                </Avatar>
+                <Box>
+                  <Typography variant="h5" fontWeight="bold">
+                    {patient.fullName}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    ID: #{patient.id}
+                  </Typography>
+                </Box>
+              </Box>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Teléfono:</strong> {patient.phone}
-              </Typography>
+
+            {/* Contact Info */}
+            <Grid item xs={12} md={4}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CakeIcon fontSize="small" />
+                  <Typography variant="body2">{calculateAge(patient.birthDate)}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PhoneIcon fontSize="small" />
+                  <Typography variant="body2">{patient.phone || 'Sin teléfono'}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <EmailIcon fontSize="small" />
+                  <Typography variant="body2">{patient.email || 'Sin email'}</Typography>
+                </Box>
+              </Box>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Email:</strong> {patient.email || 'N/A'}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Tipo de sangre:</strong> {patient.bloodType || 'N/A'}
-              </Typography>
+
+            {/* Stats */}
+            <Grid item xs={12} md={4}>
+              <Box sx={{ display: 'flex', gap: 3, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight="bold">{appointments.length}</Typography>
+                  <Typography variant="caption">Citas</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight="bold">{medicalCases.length}</Typography>
+                  <Typography variant="caption">Condiciones</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight="bold">{prescriptions.length}</Typography>
+                  <Typography variant="caption">Recetas</Typography>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
-          {patient.allergies && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              <strong>Alergias:</strong> {patient.allergies}
-            </Alert>
-          )}
         </CardContent>
       </Card>
 
+      {/* Allergies Warning */}
+      {patient.allergies && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <strong>⚠️ Alergias:</strong> {patient.allergies}
+        </Alert>
+      )}
+
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab label="Resumen" icon={<EventIcon />} iconPosition="start" />
-          <Tab label={`Citas (${appointments.length})`} icon={<EventIcon />} iconPosition="start" />
-          <Tab label={`Casos (${medicalCases.length})`} icon={<CaseIcon />} iconPosition="start" />
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab label="Historial" icon={<EventIcon />} iconPosition="start" />
+          <Tab label={`Condiciones (${medicalCases.length})`} icon={<CaseIcon />} iconPosition="start" />
           <Tab label={`Recetas (${prescriptions.length})`} icon={<MedicationIcon />} iconPosition="start" />
+          <Tab label={`Citas (${appointments.length})`} icon={<EventIcon />} iconPosition="start" />
+          <Tab label="Datos Personales" icon={<PersonIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
 
       {/* Tab Content */}
       <Box sx={{ mt: 2 }}>
         {activeTab === 0 && renderTimelineTab()}
-        {activeTab === 1 && renderAppointmentsTab()}
-        {activeTab === 2 && renderMedicalCasesTab()}
-        {activeTab === 3 && renderPrescriptionsTab()}
+        {activeTab === 1 && renderMedicalCasesTab()}
+        {activeTab === 2 && renderPrescriptionsTab()}
+        {activeTab === 3 && renderAppointmentsTab()}
+        {activeTab === 4 && (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Información Personal
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" color="primary" gutterBottom>
+                      Datos de Contacto
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PersonIcon color="action" fontSize="small" />
+                        <Typography variant="body2">
+                          <strong>Nombre:</strong> {patient.fullName}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <PhoneIcon color="action" fontSize="small" />
+                        <Typography variant="body2">
+                          <strong>Teléfono:</strong> {patient.phone || 'No registrado'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <EmailIcon color="action" fontSize="small" />
+                        <Typography variant="body2">
+                          <strong>Email:</strong> {patient.email || 'No registrado'}
+                        </Typography>
+                      </Box>
+                      {patient.address && (
+                        <Typography variant="body2">
+                          <strong>Dirección:</strong> {patient.address}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2" color="primary" gutterBottom>
+                      Información Médica
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CakeIcon color="action" fontSize="small" />
+                        <Typography variant="body2">
+                          <strong>Fecha de nacimiento:</strong> {patient.birthDate ? formatDate(patient.birthDate) : 'No registrada'}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2">
+                        <strong>Sexo:</strong> {patient.gender === 'male' ? 'Masculino' : patient.gender === 'female' ? 'Femenino' : 'No especificado'}
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Tipo de sangre:</strong> {patient.bloodType || 'No registrado'}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Grid>
+
+                {patient.allergies && (
+                  <Grid item xs={12}>
+                    <Alert severity="warning">
+                      <Typography variant="body2">
+                        <strong>Alergias:</strong> {patient.allergies}
+                      </Typography>
+                    </Alert>
+                  </Grid>
+                )}
+
+                {patient.notes && (
+                  <Grid item xs={12}>
+                    <Paper variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" color="primary" gutterBottom>
+                        Notas
+                      </Typography>
+                      <Typography variant="body2">{patient.notes}</Typography>
+                    </Paper>
+                  </Grid>
+                )}
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
       </Box>
     </Box>
   );
