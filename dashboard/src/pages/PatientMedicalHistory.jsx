@@ -199,6 +199,30 @@ const PatientMedicalHistory = () => {
     }
   };
 
+  // Handle expediente PDF download
+  const handleDownloadExpediente = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/patients/${patientId}/expediente-pdf`, {
+        headers: getAuthHeader(),
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `expediente_${patientId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage('Expediente descargado exitosamente');
+    } catch (err) {
+      console.error('Error downloading expediente PDF:', err);
+      setError('Error al descargar el expediente');
+    }
+  };
+
   // Handle appointment receipt PDF download
   const handleDownloadAppointmentReceipt = async (appointmentId) => {
     try {
@@ -784,6 +808,15 @@ const PatientMedicalHistory = () => {
           size="small"
         >
           Agregar Foto
+        </Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          startIcon={<PrintIcon />}
+          onClick={handleDownloadExpediente}
+          size="small"
+        >
+          Exportar Expediente
         </Button>
       </Box>
 

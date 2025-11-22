@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const { Patient, Appointment, Service, Doctor, MedicalCase, Prescription, Photo, PaymentProof } = require('../models');
 const auth = require('../middleware/auth');
+const { generateExpedientePDF } = require('../utils/pdfGenerator');
 
 // Apply auth middleware to all patient routes
 router.use(auth);
@@ -329,6 +332,137 @@ router.put('/:id', async (req, res) => {
       message: 'Error al actualizar paciente',
       error: error.message
     });
+  }
+});
+
+// ===================================
+// GET /api/patients/:id/expediente-pdf
+// Generate and download patient expediente summary PDF
+// ===================================
+router.get('/:id/expediente-pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get patient with all related data
+    const patient = await Patient.findByPk(id, {
+      include: [
+        {
+          model: Appointment,
+          include: [
+            { model: Doctor, attributes: ['id', 'fullName', 'specialty'] },
+            { model: Service, attributes: ['id', 'name'] }
+          ]
+        },
+        {
+          model: MedicalCase,
+          include: [
+            { model: Doctor, attributes: ['id', 'fullName', 'specialty'] },
+            { model: Prescription },
+            { model: Photo }
+          ]
+        }
+      ]
+    });
+
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Paciente no encontrado' });
+    }
+
+    // Calculate age
+    const calculateAge = (birthDate) => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      return `${age} años`;
+    };
+
+    // Count photos across all cases
+    let totalPhotos = 0;
+    patient.MedicalCases?.forEach(c => {
+      totalPhotos += c.Photos?.length || 0;
+    });
+
+    // Gather all prescriptions
+    const allPrescriptions = [];
+    patient.MedicalCases?.forEach(c => {
+      c.Prescriptions?.forEach(rx => {
+        allPrescriptions.push({
+          medicationName: rx.medicationName,
+          dosage: rx.dosage,
+          frequency: rx.frequency,
+          prescribedDate: rx.prescribedDate
+        });
+      });
+    });
+
+    // Sort prescriptions by date (most recent first)
+    allPrescriptions.sort((a, b) => new Date(b.prescribedDate) - new Date(a.prescribedDate));
+
+    // Prepare data for PDF
+    const patientData = {
+      patient: {
+        id: patient.id,
+        fullName: patient.fullName,
+        phone: patient.phone,
+        email: patient.email,
+        birthDate: patient.birthDate,
+        age: calculateAge(patient.birthDate),
+        gender: patient.gender,
+        bloodType: patient.bloodType,
+        allergies: patient.allergies
+      },
+      stats: {
+        appointments: patient.Appointments?.length || 0,
+        cases: patient.MedicalCases?.length || 0,
+        prescriptions: allPrescriptions.length,
+        photos: totalPhotos
+      },
+      medicalCases: patient.MedicalCases?.map(c => ({
+        conditionName: c.conditionName,
+        doctorName: c.Doctor?.fullName,
+        specialty: c.specialty,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        status: c.status,
+        severity: c.severity
+      })) || [],
+      prescriptions: allPrescriptions
+    };
+
+    // Create uploads/pdfs directory if it doesn't exist
+    const pdfDir = path.join(__dirname, '../uploads/pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    // Generate PDF
+    const fileName = `expediente_${patient.id}_${Date.now()}.pdf`;
+    const outputPath = path.join(pdfDir, fileName);
+
+    await generateExpedientePDF(patientData, outputPath);
+
+    // Send the PDF file
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    const fileStream = fs.createReadStream(outputPath);
+    fileStream.pipe(res);
+
+    // Clean up the file after sending
+    fileStream.on('end', () => {
+      fs.unlink(outputPath, (err) => {
+        if (err) console.error('Error deleting temp PDF:', err);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error generating expediente PDF:', error);
+    res.status(500).json({ success: false, message: 'Error al generar el PDF del expediente' });
   }
 });
 
