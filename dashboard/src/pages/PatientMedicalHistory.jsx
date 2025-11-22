@@ -23,7 +23,14 @@ import {
   Divider,
   IconButton,
   Tooltip,
-  Avatar
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Snackbar
 } from '@mui/material';
 import {
   Timeline,
@@ -46,7 +53,8 @@ import {
   PhotoCamera as PhotoIcon,
   Add as AddIcon,
   Description as DescriptionIcon,
-  Print as PrintIcon
+  Print as PrintIcon,
+  NoteAdd as NoteIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -70,6 +78,33 @@ const PatientMedicalHistory = () => {
   const [medicalCases, setMedicalCases] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
   const [timeline, setTimeline] = useState([]);
+
+  // Dialog states
+  const [prescriptionDialog, setPrescriptionDialog] = useState(false);
+  const [noteDialog, setNoteDialog] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Prescription form
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    medicationName: '',
+    dosage: '',
+    frequency: '',
+    duration: '',
+    instructions: ''
+  });
+
+  // Note form
+  const [noteForm, setNoteForm] = useState({
+    note: ''
+  });
+
+  // Photo dialog
+  const [photoDialog, setPhotoDialog] = useState(false);
+  const [photoForm, setPhotoForm] = useState({
+    file: null,
+    description: ''
+  });
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     loadMedicalHistory();
@@ -100,6 +135,111 @@ const PatientMedicalHistory = () => {
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+  };
+
+  // Handle prescription submission
+  const handleAddPrescription = async () => {
+    try {
+      // For now, we'll need a medical case to add a prescription
+      // If no cases exist, show an alert
+      if (medicalCases.length === 0) {
+        setError('Primero debe crear un caso médico para agregar recetas');
+        setPrescriptionDialog(false);
+        return;
+      }
+
+      // Use the first active case or most recent case
+      const activeCase = medicalCases.find(c => c.status === 'En Tratamiento') || medicalCases[0];
+
+      await axios.post(`${API_URL}/prescriptions`, {
+        medicalCaseId: activeCase.id,
+        ...prescriptionForm,
+        prescribedDate: new Date().toISOString().split('T')[0]
+      }, {
+        headers: getAuthHeader()
+      });
+
+      setSuccessMessage('Receta agregada exitosamente');
+      setPrescriptionDialog(false);
+      setPrescriptionForm({
+        medicationName: '',
+        dosage: '',
+        frequency: '',
+        duration: '',
+        instructions: ''
+      });
+      loadMedicalHistory(); // Reload data
+    } catch (err) {
+      console.error('Error adding prescription:', err);
+      setError('Error al agregar la receta');
+    }
+  };
+
+  // Handle note submission (adds to patient notes)
+  const handleAddNote = async () => {
+    try {
+      const currentNotes = patient.notes || '';
+      const timestamp = new Date().toLocaleDateString('es-MX');
+      const newNote = `[${timestamp}] ${noteForm.note}`;
+      const updatedNotes = currentNotes ? `${currentNotes}\n\n${newNote}` : newNote;
+
+      await axios.put(`${API_URL}/patients/${patientId}`, {
+        notes: updatedNotes
+      }, {
+        headers: getAuthHeader()
+      });
+
+      setSuccessMessage('Nota agregada exitosamente');
+      setNoteDialog(false);
+      setNoteForm({ note: '' });
+      loadMedicalHistory(); // Reload data
+    } catch (err) {
+      console.error('Error adding note:', err);
+      setError('Error al agregar la nota');
+    }
+  };
+
+  // Handle photo upload
+  const handleAddPhoto = async () => {
+    try {
+      if (medicalCases.length === 0) {
+        setError('Primero debe crear un caso médico para agregar fotos');
+        setPhotoDialog(false);
+        return;
+      }
+
+      if (!photoForm.file) {
+        setError('Por favor seleccione una imagen');
+        return;
+      }
+
+      setUploading(true);
+
+      const activeCase = medicalCases.find(c => c.status === 'En Tratamiento') || medicalCases[0];
+
+      const formData = new FormData();
+      formData.append('photo', photoForm.file);
+      formData.append('medicalCaseId', activeCase.id);
+      formData.append('description', photoForm.description);
+      formData.append('dateTaken', new Date().toISOString().split('T')[0]);
+
+      await axios.post(`${API_URL}/photos`, formData, {
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setSuccessMessage('Foto agregada exitosamente');
+      setPhotoDialog(false);
+      setPhotoForm({ file: null, description: '' });
+      loadMedicalHistory();
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      setError('Error al subir la foto');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const formatDate = (date) => {
@@ -546,6 +686,34 @@ const PatientMedicalHistory = () => {
         </Alert>
       )}
 
+      {/* Quick Actions */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+        <Button
+          variant="contained"
+          startIcon={<MedicationIcon />}
+          onClick={() => setPrescriptionDialog(true)}
+          size="small"
+        >
+          Nueva Receta
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<NoteIcon />}
+          onClick={() => setNoteDialog(true)}
+          size="small"
+        >
+          Agregar Nota
+        </Button>
+        <Button
+          variant="outlined"
+          startIcon={<PhotoIcon />}
+          onClick={() => setPhotoDialog(true)}
+          size="small"
+        >
+          Agregar Foto
+        </Button>
+      </Box>
+
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
         <Tabs
@@ -657,6 +825,151 @@ const PatientMedicalHistory = () => {
           </Card>
         )}
       </Box>
+
+      {/* Prescription Dialog */}
+      <Dialog open={prescriptionDialog} onClose={() => setPrescriptionDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Nueva Receta</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label="Medicamento"
+              value={prescriptionForm.medicationName}
+              onChange={(e) => setPrescriptionForm({ ...prescriptionForm, medicationName: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Dosis"
+              value={prescriptionForm.dosage}
+              onChange={(e) => setPrescriptionForm({ ...prescriptionForm, dosage: e.target.value })}
+              fullWidth
+              placeholder="Ej: 500mg"
+            />
+            <TextField
+              label="Frecuencia"
+              value={prescriptionForm.frequency}
+              onChange={(e) => setPrescriptionForm({ ...prescriptionForm, frequency: e.target.value })}
+              fullWidth
+              placeholder="Ej: Cada 8 horas"
+            />
+            <TextField
+              label="Duración"
+              value={prescriptionForm.duration}
+              onChange={(e) => setPrescriptionForm({ ...prescriptionForm, duration: e.target.value })}
+              fullWidth
+              placeholder="Ej: 7 días"
+            />
+            <TextField
+              label="Instrucciones adicionales"
+              value={prescriptionForm.instructions}
+              onChange={(e) => setPrescriptionForm({ ...prescriptionForm, instructions: e.target.value })}
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="Ej: Tomar con alimentos, evitar el sol..."
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPrescriptionDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleAddPrescription}
+            variant="contained"
+            disabled={!prescriptionForm.medicationName}
+          >
+            Guardar Receta
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Note Dialog */}
+      <Dialog open={noteDialog} onClose={() => setNoteDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Agregar Nota al Expediente</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            <TextField
+              label="Nota"
+              value={noteForm.note}
+              onChange={(e) => setNoteForm({ note: e.target.value })}
+              fullWidth
+              multiline
+              rows={4}
+              placeholder="Escriba una nota para el expediente del paciente..."
+              required
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNoteDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleAddNote}
+            variant="contained"
+            disabled={!noteForm.note}
+          >
+            Guardar Nota
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Photo Dialog */}
+      <Dialog open={photoDialog} onClose={() => setPhotoDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Agregar Foto Médica</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<PhotoIcon />}
+              sx={{ py: 2 }}
+            >
+              {photoForm.file ? photoForm.file.name : 'Seleccionar Imagen'}
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={(e) => setPhotoForm({ ...photoForm, file: e.target.files[0] })}
+              />
+            </Button>
+            {photoForm.file && (
+              <Box sx={{ textAlign: 'center' }}>
+                <img
+                  src={URL.createObjectURL(photoForm.file)}
+                  alt="Preview"
+                  style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8 }}
+                />
+              </Box>
+            )}
+            <TextField
+              label="Descripción (opcional)"
+              value={photoForm.description}
+              onChange={(e) => setPhotoForm({ ...photoForm, description: e.target.value })}
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Ej: Lesión en antebrazo derecho, día 1 de tratamiento..."
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPhotoDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleAddPhoto}
+            variant="contained"
+            disabled={!photoForm.file || uploading}
+          >
+            {uploading ? 'Subiendo...' : 'Guardar Foto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage('')}
+        message={successMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Box>
   );
 };
