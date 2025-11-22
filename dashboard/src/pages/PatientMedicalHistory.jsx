@@ -106,6 +106,17 @@ const PatientMedicalHistory = () => {
   });
   const [uploading, setUploading] = useState(false);
 
+  // Medical Case dialog
+  const [caseDialog, setCaseDialog] = useState(false);
+  const [caseForm, setCaseForm] = useState({
+    conditionName: '',
+    specialty: 'Dermatología',
+    severity: 'Moderado',
+    symptoms: '',
+    affectedArea: '',
+    status: 'En Tratamiento'
+  });
+
   useEffect(() => {
     loadMedicalHistory();
   }, [patientId]);
@@ -312,6 +323,43 @@ const PatientMedicalHistory = () => {
       setError('Error al subir la foto');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Handle medical case creation
+  const handleAddMedicalCase = async () => {
+    try {
+      // Get doctor ID (for now we'll need to get it from the logged-in user or select)
+      // For simplicity, we'll let the backend handle doctor assignment
+      const response = await axios.post(`${API_URL}/medical-cases`, {
+        patientId: parseInt(patientId),
+        conditionName: caseForm.conditionName,
+        specialty: caseForm.specialty,
+        severity: caseForm.severity,
+        symptoms: caseForm.symptoms,
+        affectedArea: caseForm.affectedArea,
+        status: caseForm.status,
+        startDate: new Date().toISOString().split('T')[0]
+      }, {
+        headers: getAuthHeader()
+      });
+
+      if (response.data.success) {
+        setSuccessMessage('Caso médico creado exitosamente');
+        setCaseDialog(false);
+        setCaseForm({
+          conditionName: '',
+          specialty: 'Dermatología',
+          severity: 'Moderado',
+          symptoms: '',
+          affectedArea: '',
+          status: 'En Tratamiento'
+        });
+        loadMedicalHistory();
+      }
+    } catch (err) {
+      console.error('Error creating medical case:', err);
+      setError(err.response?.data?.message || 'Error al crear el caso médico');
     }
   };
 
@@ -810,6 +858,15 @@ const PatientMedicalHistory = () => {
           Agregar Foto
         </Button>
         <Button
+          variant="contained"
+          color="success"
+          startIcon={<CaseIcon />}
+          onClick={() => setCaseDialog(true)}
+          size="small"
+        >
+          Nuevo Caso Médico
+        </Button>
+        <Button
           variant="outlined"
           color="secondary"
           startIcon={<PrintIcon />}
@@ -1064,6 +1121,84 @@ const PatientMedicalHistory = () => {
             disabled={!photoForm.file || uploading}
           >
             {uploading ? 'Subiendo...' : 'Guardar Foto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Medical Case Dialog */}
+      <Dialog open={caseDialog} onClose={() => setCaseDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Nuevo Caso Médico</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              label="Nombre de la Condición"
+              value={caseForm.conditionName}
+              onChange={(e) => setCaseForm({ ...caseForm, conditionName: e.target.value })}
+              fullWidth
+              required
+              placeholder="Ej: Dermatitis atópica, Acné, Psoriasis..."
+            />
+            <TextField
+              select
+              label="Especialidad"
+              value={caseForm.specialty}
+              onChange={(e) => setCaseForm({ ...caseForm, specialty: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="Dermatología">Dermatología</MenuItem>
+              <MenuItem value="Dermatología Estética">Dermatología Estética</MenuItem>
+              <MenuItem value="Dermatología Pediátrica">Dermatología Pediátrica</MenuItem>
+            </TextField>
+            <TextField
+              select
+              label="Severidad"
+              value={caseForm.severity}
+              onChange={(e) => setCaseForm({ ...caseForm, severity: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="Leve">Leve</MenuItem>
+              <MenuItem value="Moderado">Moderado</MenuItem>
+              <MenuItem value="Severo">Severo</MenuItem>
+            </TextField>
+            <TextField
+              label="Síntomas"
+              value={caseForm.symptoms}
+              onChange={(e) => setCaseForm({ ...caseForm, symptoms: e.target.value })}
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Describa los síntomas del paciente..."
+            />
+            <TextField
+              label="Área Afectada"
+              value={caseForm.affectedArea}
+              onChange={(e) => setCaseForm({ ...caseForm, affectedArea: e.target.value })}
+              fullWidth
+              placeholder="Ej: Rostro, Brazos, Espalda..."
+            />
+            <TextField
+              select
+              label="Estado"
+              value={caseForm.status}
+              onChange={(e) => setCaseForm({ ...caseForm, status: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="En Tratamiento">En Tratamiento</MenuItem>
+              <MenuItem value="Crónico">Crónico</MenuItem>
+              <MenuItem value="Curado">Curado</MenuItem>
+              <MenuItem value="Inactivo">Inactivo</MenuItem>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCaseDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleAddMedicalCase}
+            variant="contained"
+            color="success"
+            disabled={!caseForm.conditionName}
+          >
+            Crear Caso
           </Button>
         </DialogActions>
       </Dialog>

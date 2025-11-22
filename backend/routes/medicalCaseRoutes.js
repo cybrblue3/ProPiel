@@ -180,8 +180,17 @@ router.post('/', auth, async (req, res) => {
       isActive
     } = req.body;
 
+    // Auto-assign doctorId if user is a doctor and no doctorId provided
+    let finalDoctorId = doctorId;
+    if (!finalDoctorId && req.userRole === 'doctor') {
+      const loggedInDoctor = await Doctor.findOne({ where: { userId: req.userId } });
+      if (loggedInDoctor) {
+        finalDoctorId = loggedInDoctor.id;
+      }
+    }
+
     // Validation
-    if (!patientId || !doctorId || !conditionName || !specialty) {
+    if (!patientId || !finalDoctorId || !conditionName || !specialty) {
       return res.status(400).json({
         success: false,
         message: 'Paciente, doctor, condición y especialidad son requeridos'
@@ -203,7 +212,7 @@ router.post('/', auth, async (req, res) => {
     }
 
     // Verify doctor exists
-    const doctor = await Doctor.findByPk(doctorId);
+    const doctor = await Doctor.findByPk(finalDoctorId);
     if (!doctor) {
       return res.status(404).json({ success: false, message: 'Doctor no encontrado' });
     }
@@ -218,7 +227,7 @@ router.post('/', auth, async (req, res) => {
     // Create medical case
     const medicalCase = await MedicalCase.create({
       patientId,
-      doctorId,
+      doctorId: finalDoctorId,
       conditionName,
       specialty,
       severity: severity || 'Moderado',
