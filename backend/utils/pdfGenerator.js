@@ -194,4 +194,233 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
   });
 }
 
-module.exports = { generateConsentPDF };
+/**
+ * Generate a medical prescription PDF
+ * @param {Object} prescriptionData - Prescription, patient, and doctor information
+ * @param {string} outputPdfPath - Path where the PDF will be saved
+ * @returns {Promise<string>} - Returns the output PDF path
+ */
+async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'letter', margin: 50 });
+      const stream = fs.createWriteStream(outputPdfPath);
+      doc.pipe(stream);
+
+      // Header with clinic info
+      doc
+        .fontSize(22)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('CLÍNICA PROPIEL', { align: 'center' })
+        .moveDown(0.3);
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text('Especialistas en Dermatología', { align: 'center' })
+        .moveDown(0.5);
+
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text('RECETA MÉDICA', { align: 'center' })
+        .moveDown(1);
+
+      // Prescription number and date
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text(`No. Receta: ${prescriptionData.prescriptionId || 'N/A'}`, { align: 'right' })
+        .text(`Fecha: ${prescriptionData.prescribedDate}`, { align: 'right' })
+        .moveDown(1);
+
+      // Horizontal line
+      doc
+        .strokeColor('#1976d2')
+        .lineWidth(2)
+        .moveTo(50, doc.y)
+        .lineTo(562, doc.y)
+        .stroke()
+        .moveDown(1);
+
+      // Patient Information
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('DATOS DEL PACIENTE')
+        .moveDown(0.5);
+
+      doc
+        .fontSize(11)
+        .font('Helvetica')
+        .fillColor('#333333')
+        .text(`Nombre: ${prescriptionData.patientName}`)
+        .moveDown(0.3);
+
+      if (prescriptionData.patientAge) {
+        doc.text(`Edad: ${prescriptionData.patientAge}`).moveDown(0.3);
+      }
+
+      if (prescriptionData.patientAllergies) {
+        doc
+          .font('Helvetica-Bold')
+          .fillColor('#d32f2f')
+          .text(`⚠ Alergias: ${prescriptionData.patientAllergies}`)
+          .font('Helvetica')
+          .fillColor('#333333')
+          .moveDown(0.3);
+      }
+
+      doc.moveDown(1);
+
+      // Prescription Details
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('MEDICAMENTO PRESCRITO')
+        .moveDown(0.5);
+
+      // Medication box
+      const boxY = doc.y;
+      doc
+        .rect(50, boxY, 512, 120)
+        .fillAndStroke('#f5f5f5', '#e0e0e0');
+
+      doc.y = boxY + 15;
+      doc.x = 70;
+
+      doc
+        .fontSize(14)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text(`💊 ${prescriptionData.medicationName}`, { continued: false });
+
+      doc.moveDown(0.5);
+
+      if (prescriptionData.dosage) {
+        doc
+          .fontSize(11)
+          .font('Helvetica')
+          .text(`Dosis: ${prescriptionData.dosage}`);
+      }
+
+      if (prescriptionData.frequency) {
+        doc.text(`Frecuencia: ${prescriptionData.frequency}`);
+      }
+
+      if (prescriptionData.duration) {
+        doc.text(`Duración: ${prescriptionData.duration}`);
+      }
+
+      doc.x = 50;
+      doc.y = boxY + 135;
+      doc.moveDown(1);
+
+      // Instructions
+      if (prescriptionData.instructions) {
+        doc
+          .fontSize(12)
+          .font('Helvetica-Bold')
+          .fillColor('#1976d2')
+          .text('INSTRUCCIONES')
+          .moveDown(0.5);
+
+        doc
+          .fontSize(11)
+          .font('Helvetica')
+          .fillColor('#333333')
+          .text(prescriptionData.instructions, { align: 'justify' })
+          .moveDown(1);
+      }
+
+      // Condition/Diagnosis
+      if (prescriptionData.conditionName) {
+        doc
+          .fontSize(12)
+          .font('Helvetica-Bold')
+          .fillColor('#1976d2')
+          .text('DIAGNÓSTICO')
+          .moveDown(0.5);
+
+        doc
+          .fontSize(11)
+          .font('Helvetica')
+          .fillColor('#333333')
+          .text(prescriptionData.conditionName)
+          .moveDown(1.5);
+      }
+
+      // Doctor signature section
+      doc.moveDown(2);
+
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('MÉDICO TRATANTE')
+        .moveDown(1);
+
+      // Signature line
+      doc
+        .strokeColor('#333333')
+        .lineWidth(1)
+        .moveTo(50, doc.y + 30)
+        .lineTo(250, doc.y + 30)
+        .stroke();
+
+      doc.y += 35;
+
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#333333')
+        .text(`Dr. ${prescriptionData.doctorName}`)
+        .moveDown(0.3);
+
+      if (prescriptionData.doctorSpecialty) {
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#666666')
+          .text(prescriptionData.doctorSpecialty);
+      }
+
+      if (prescriptionData.doctorLicense) {
+        doc.text(`Cédula Profesional: ${prescriptionData.doctorLicense}`);
+      }
+
+      // Footer
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .fillColor('#999999')
+        .text(
+          'Este documento ha sido generado electrónicamente por el sistema de Clínica ProPiel.',
+          50,
+          doc.page.height - 50,
+          { align: 'center', width: 512 }
+        );
+
+      doc.end();
+
+      stream.on('finish', () => {
+        resolve(outputPdfPath);
+      });
+
+      stream.on('error', (err) => {
+        reject(err);
+      });
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = { generateConsentPDF, generatePrescriptionPDF };

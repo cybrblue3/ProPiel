@@ -199,6 +199,31 @@ const PatientMedicalHistory = () => {
     }
   };
 
+  // Handle prescription PDF download
+  const handleDownloadPrescription = async (prescriptionId) => {
+    try {
+      const response = await axios.get(`${API_URL}/prescriptions/${prescriptionId}/pdf`, {
+        headers: getAuthHeader(),
+        responseType: 'blob'
+      });
+
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `receta_${prescriptionId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      setSuccessMessage('PDF descargado exitosamente');
+    } catch (err) {
+      console.error('Error downloading prescription PDF:', err);
+      setError('Error al descargar el PDF');
+    }
+  };
+
   // Handle photo upload
   const handleAddPhoto = async () => {
     try {
@@ -523,6 +548,7 @@ const PatientMedicalHistory = () => {
               <TableCell>Caso Médico</TableCell>
               <TableCell>Doctor</TableCell>
               <TableCell>Fecha</TableCell>
+              <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -568,6 +594,17 @@ const PatientMedicalHistory = () => {
                       Cita: {formatDate(rx.Appointment.appointmentDate)}
                     </Typography>
                   )}
+                </TableCell>
+                <TableCell align="center">
+                  <Tooltip title="Descargar PDF">
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleDownloadPrescription(rx.id)}
+                    >
+                      <PrintIcon />
+                    </IconButton>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}
