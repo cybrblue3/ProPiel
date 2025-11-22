@@ -502,7 +502,7 @@ const PatientMedicalHistory = () => {
         <CardContent sx={{ color: 'white' }}>
           <Grid container spacing={3} alignItems="center">
             {/* Avatar and Name */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar sx={{ width: 80, height: 80, bgcolor: 'white', color: 'primary.main', fontSize: '1.5rem', fontWeight: 'bold' }}>
                   {getInitials(patient.fullName)}
@@ -512,32 +512,14 @@ const PatientMedicalHistory = () => {
                     {patient.fullName}
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    ID: #{patient.id}
+                    ID: #{patient.id} • {calculateAge(patient.birthDate)}
                   </Typography>
                 </Box>
               </Box>
             </Grid>
 
-            {/* Contact Info */}
-            <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CakeIcon fontSize="small" />
-                  <Typography variant="body2">{calculateAge(patient.birthDate)}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PhoneIcon fontSize="small" />
-                  <Typography variant="body2">{patient.phone || 'Sin teléfono'}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <EmailIcon fontSize="small" />
-                  <Typography variant="body2">{patient.email || 'Sin email'}</Typography>
-                </Box>
-              </Box>
-            </Grid>
-
             {/* Stats */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <Box sx={{ display: 'flex', gap: 3, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="h4" fontWeight="bold">{appointments.length}</Typography>
