@@ -180,8 +180,8 @@ function App() {
               />
             </Route>
 
-            {/* 404 Route */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* 404 Route - Use smart redirect */}
+            <Route path="*" element={<DashboardRedirect />} />
           </Routes>
         </Router>
       </AuthProvider>
