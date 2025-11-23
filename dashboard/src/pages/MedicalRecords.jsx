@@ -33,7 +33,14 @@ import {
   LocalHospital as MedicalIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Notes as NotesIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+  Medication as MedicationIcon,
+  PhotoCamera as PhotoIcon,
+  Circle as CircleIcon,
+  AccessTime as TimeIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -111,6 +118,11 @@ function MedicalRecords() {
     search: ''
   });
 
+  // Inline notes editing
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editedNotes, setEditedNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
+
   useEffect(() => {
     fetchCases();
   }, []);
@@ -153,6 +165,8 @@ function MedicalRecords() {
   const handleCloseDetails = () => {
     setDetailsDialog(false);
     setSelectedCase(null);
+    setIsEditingNotes(false);
+    setEditedNotes('');
   };
 
   const fetchPatientsAndDoctors = async () => {
@@ -441,6 +455,84 @@ function MedicalRecords() {
     }
   };
 
+  // Inline notes editing handlers
+  const handleStartEditNotes = () => {
+    setEditedNotes(selectedCase?.notes || '');
+    setIsEditingNotes(true);
+  };
+
+  const handleCancelEditNotes = () => {
+    setIsEditingNotes(false);
+    setEditedNotes('');
+  };
+
+  const handleSaveNotes = async () => {
+    setSavingNotes(true);
+    setError('');
+
+    try {
+      const response = await axios.put(
+        `${API_URL}/medical-cases/${selectedCase.id}`,
+        { notes: editedNotes },
+        { headers: getAuthHeader() }
+      );
+
+      if (response.data.success) {
+        // Update the selected case with new notes
+        setSelectedCase({ ...selectedCase, notes: editedNotes });
+        setIsEditingNotes(false);
+        // Also refresh the cases list
+        await fetchCases();
+      }
+    } catch (err) {
+      console.error('Error saving notes:', err);
+      setError(err.response?.data?.message || 'Error al guardar notas');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  // Helper function to build timeline events from prescriptions and photos
+  const buildTimelineEvents = () => {
+    if (!selectedCase) return [];
+
+    const events = [];
+
+    // Add prescriptions to timeline
+    if (selectedCase.Prescriptions) {
+      selectedCase.Prescriptions.forEach(prescription => {
+        events.push({
+          id: `prescription-${prescription.id}`,
+          type: 'prescription',
+          date: prescription.prescribedDate,
+          title: prescription.medicationName,
+          subtitle: `${prescription.dosage || ''} ${prescription.frequency || ''}`.trim() || 'Sin dosis especificada',
+          data: prescription
+        });
+      });
+    }
+
+    // Add photos to timeline
+    if (selectedCase.Photos) {
+      selectedCase.Photos.forEach(photo => {
+        events.push({
+          id: `photo-${photo.id}`,
+          type: 'photo',
+          date: photo.uploadDate,
+          title: photo.photoType === 'before' ? 'Foto: Antes' :
+                 photo.photoType === 'after' ? 'Foto: Después' : 'Foto: Durante',
+          subtitle: photo.description || 'Sin descripción',
+          data: photo
+        });
+      });
+    }
+
+    // Sort by date (newest first)
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return events;
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -670,386 +762,387 @@ function MedicalRecords() {
       <Dialog
         open={detailsDialog}
         onClose={handleCloseDetails}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
       >
-        <DialogTitle>
-          Detalles del Expediente Médico
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h6">
+              Expediente: {selectedCase?.Patient?.fullName}
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              {selectedCase?.conditionName} - {selectedCase?.specialty}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Chip
+              label={selectedCase?.severity}
+              sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+              size="small"
+            />
+            <Chip
+              label={selectedCase?.status}
+              sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+              size="small"
+            />
+          </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 0 }}>
           {selectedCase && (
-            <Box sx={{ pt: 2 }}>
-              {/* Patient Info */}
-              <Card sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Información del Paciente
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Nombre
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.Patient?.fullName}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Teléfono
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.Patient?.phone}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Fecha de Nacimiento
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.Patient?.birthDate
-                          ? formatDate(selectedCase.Patient.birthDate)
-                          : 'N/A'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Email
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.Patient?.email || 'N/A'}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-
-              {/* Medical Case Info */}
-              <Card sx={{ mb: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Información del Caso Médico
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Condición
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.conditionName}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Especialidad
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.specialty}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Severidad
-                      </Typography>
-                      <Chip
-                        label={selectedCase.severity}
-                        color={getSeverityColor(selectedCase.severity)}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Estado
-                      </Typography>
-                      <Chip
-                        label={selectedCase.status}
-                        color={getStatusColor(selectedCase.status)}
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Fecha de Inicio
-                      </Typography>
-                      <Typography variant="body1">
-                        {formatDate(selectedCase.startDate)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Fecha de Finalización
-                      </Typography>
-                      <Typography variant="body1">
-                        {selectedCase.endDate
-                          ? formatDate(selectedCase.endDate)
-                          : 'En curso'}
-                      </Typography>
-                    </Grid>
-                    {selectedCase.symptoms && (
-                      <Grid item xs={12}>
-                        <Typography variant="body2" color="text.secondary">
-                          Síntomas
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedCase.symptoms}
-                        </Typography>
-                      </Grid>
-                    )}
-                    {selectedCase.affectedArea && (
-                      <Grid item xs={12}>
-                        <Typography variant="body2" color="text.secondary">
-                          Área Afectada
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedCase.affectedArea}
-                        </Typography>
-                      </Grid>
-                    )}
-                    {selectedCase.treatmentGoal && (
-                      <Grid item xs={12}>
-                        <Typography variant="body2" color="text.secondary">
-                          Objetivo del Tratamiento
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedCase.treatmentGoal}
-                        </Typography>
-                      </Grid>
-                    )}
-                    {selectedCase.notes && (
-                      <Grid item xs={12}>
-                        <Typography variant="body2" color="text.secondary">
-                          Notas Adicionales
-                        </Typography>
-                        <Typography variant="body1">
-                          {selectedCase.notes}
-                        </Typography>
-                      </Grid>
-                    )}
-                  </Grid>
-                </CardContent>
-              </Card>
-
-              {/* Prescriptions */}
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6">
-                      Prescripciones ({selectedCase.Prescriptions?.length || 0})
+            <Box>
+              {/* NOTES SECTION - Prominent at the top */}
+              <Box sx={{
+                bgcolor: 'warning.lighter',
+                borderBottom: '3px solid',
+                borderColor: 'warning.main',
+                p: 3
+              }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <NotesIcon color="warning" />
+                    <Typography variant="h6" color="warning.dark">
+                      Notas del Caso
                     </Typography>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={handleOpenPrescriptionDialog}
-                    >
-                      Agregar
-                    </Button>
                   </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  {selectedCase.Prescriptions && selectedCase.Prescriptions.length > 0 ? (
-                    selectedCase.Prescriptions.map((prescription, index) => (
-                      <Box key={prescription.id} sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {prescription.medicationName}
+                  {!isEditingNotes ? (
+                    <Button
+                      size="small"
+                      startIcon={<EditIcon />}
+                      onClick={handleStartEditNotes}
+                      variant="outlined"
+                      color="warning"
+                    >
+                      Editar Notas
+                    </Button>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        startIcon={<CancelIcon />}
+                        onClick={handleCancelEditNotes}
+                        variant="outlined"
+                        color="inherit"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="small"
+                        startIcon={savingNotes ? <CircularProgress size={16} /> : <SaveIcon />}
+                        onClick={handleSaveNotes}
+                        variant="contained"
+                        color="warning"
+                        disabled={savingNotes}
+                      >
+                        Guardar
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+
+                {isEditingNotes ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    placeholder="Escribe las notas del caso aquí..."
+                    variant="outlined"
+                    sx={{ bgcolor: 'white' }}
+                  />
+                ) : (
+                  <Paper sx={{ p: 2, minHeight: 80, bgcolor: 'white' }}>
+                    {selectedCase.notes ? (
+                      <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {selectedCase.notes}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                        No hay notas registradas. Haz clic en "Editar Notas" para agregar observaciones importantes sobre este caso.
+                      </Typography>
+                    )}
+                  </Paper>
+                )}
+              </Box>
+
+              {/* Main Content Grid */}
+              <Box sx={{ p: 3 }}>
+                <Grid container spacing={3}>
+                  {/* Left Column - Patient & Case Info */}
+                  <Grid item xs={12} md={4}>
+                    {/* Patient Info */}
+                    <Card sx={{ mb: 2 }}>
+                      <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                          Paciente
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>Nombre:</strong> {selectedCase.Patient?.fullName}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>Tel:</strong> {selectedCase.Patient?.phone}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>Nacimiento:</strong> {selectedCase.Patient?.birthDate ? formatDate(selectedCase.Patient.birthDate) : 'N/A'}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Email:</strong> {selectedCase.Patient?.email || 'N/A'}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+
+                    {/* Case Details */}
+                    <Card>
+                      <CardContent>
+                        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                          Detalles del Caso
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>Inicio:</strong> {formatDate(selectedCase.startDate)}
+                        </Typography>
+                        {selectedCase.endDate && (
+                          <Typography variant="body2" sx={{ mb: 1 }}>
+                            <strong>Fin:</strong> {formatDate(selectedCase.endDate)}
                           </Typography>
-                          <Box>
-                            <IconButton
+                        )}
+                        {selectedCase.symptoms && (
+                          <Typography variant="body2" sx={{ mb: 1 }}>
+                            <strong>Síntomas:</strong> {selectedCase.symptoms}
+                          </Typography>
+                        )}
+                        {selectedCase.affectedArea && (
+                          <Typography variant="body2" sx={{ mb: 1 }}>
+                            <strong>Área:</strong> {selectedCase.affectedArea}
+                          </Typography>
+                        )}
+                        {selectedCase.treatmentGoal && (
+                          <Typography variant="body2">
+                            <strong>Objetivo:</strong> {selectedCase.treatmentGoal}
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+
+                  {/* Right Column - Timeline */}
+                  <Grid item xs={12} md={8}>
+                    <Card>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <TimeIcon color="primary" />
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              Historial del Tratamiento
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
                               size="small"
-                              color="secondary"
-                              onClick={() => handleEditPrescription(prescription)}
-                              title="Editar prescripción"
+                              variant="outlined"
+                              startIcon={<MedicationIcon />}
+                              onClick={handleOpenPrescriptionDialog}
                             >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeletePrescription(prescription.id)}
-                              title="Eliminar prescripción"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                              + Prescripción
+                            </Button>
                           </Box>
                         </Box>
-                        <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                          {prescription.dosage && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="body2" color="text.secondary">
-                                Dosis: {prescription.dosage}
-                              </Typography>
-                            </Grid>
-                          )}
-                          {prescription.frequency && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="body2" color="text.secondary">
-                                Frecuencia: {prescription.frequency}
-                              </Typography>
-                            </Grid>
-                          )}
-                          {prescription.duration && (
-                            <Grid item xs={12} sm={6}>
-                              <Typography variant="body2" color="text.secondary">
-                                Duración: {prescription.duration}
-                              </Typography>
-                            </Grid>
-                          )}
-                          <Grid item xs={12} sm={6}>
-                            <Typography variant="body2" color="text.secondary">
-                              Fecha: {formatDate(prescription.prescribedDate)}
-                            </Typography>
-                          </Grid>
-                          {prescription.instructions && (
-                            <Grid item xs={12}>
-                              <Typography variant="body2" color="text.secondary">
-                                Instrucciones: {prescription.instructions}
-                              </Typography>
-                            </Grid>
-                          )}
-                          {prescription.Appointment && (
-                            <Grid item xs={12}>
-                              <Typography variant="body2" color="text.secondary">
-                                Cita: {formatDate(prescription.Appointment.appointmentDate)} - {prescription.Appointment.appointmentTime}
-                              </Typography>
-                            </Grid>
-                          )}
-                        </Grid>
-                        {index < selectedCase.Prescriptions.length - 1 && (
-                          <Divider sx={{ mt: 2 }} />
-                        )}
-                      </Box>
-                    ))
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 2 }}>
-                      No hay prescripciones registradas
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
+                        <Divider sx={{ mb: 2 }} />
 
-              {/* Photos */}
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Fotos del Tratamiento ({selectedCase.Photos?.length || 0})
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
+                        {/* Horizontal Timeline */}
+                        {buildTimelineEvents().length > 0 ? (
+                          <Box sx={{
+                            overflowX: 'auto',
+                            pb: 2,
+                            '&::-webkit-scrollbar': { height: 8 },
+                            '&::-webkit-scrollbar-track': { bgcolor: 'grey.100', borderRadius: 4 },
+                            '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.400', borderRadius: 4 }
+                          }}>
+                            <Box sx={{
+                              display: 'flex',
+                              gap: 2,
+                              minWidth: 'max-content',
+                              position: 'relative',
+                              pt: 2,
+                              pb: 1
+                            }}>
+                              {/* Timeline line */}
+                              <Box sx={{
+                                position: 'absolute',
+                                top: 40,
+                                left: 0,
+                                right: 0,
+                                height: 2,
+                                bgcolor: 'grey.300',
+                                zIndex: 0
+                              }} />
 
-                  {/* Upload Section */}
-                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} sm={4}>
-                        <TextField
-                          fullWidth
-                          select
-                          size="small"
-                          label="Tipo de Foto"
-                          value={selectedPhotoType}
-                          onChange={(e) => setSelectedPhotoType(e.target.value)}
-                        >
-                          <MenuItem value="before">Antes</MenuItem>
-                          <MenuItem value="during">Durante</MenuItem>
-                          <MenuItem value="after">Después</MenuItem>
-                        </TextField>
-                      </Grid>
-                      <Grid item xs={12} sm={8}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Descripción (Opcional)"
-                          value={photoDescription}
-                          onChange={(e) => setPhotoDescription(e.target.value)}
-                          placeholder="Ej: Primera sesión, mejora visible..."
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Button
-                          variant="contained"
-                          component="label"
-                          fullWidth
-                          disabled={uploadingPhoto}
-                          startIcon={uploadingPhoto ? <CircularProgress size={20} /> : <AddIcon />}
-                        >
-                          {uploadingPhoto ? 'Subiendo...' : 'Seleccionar y Subir Foto'}
-                          <input
-                            type="file"
-                            hidden
-                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                            onChange={handlePhotoUpload}
-                          />
-                        </Button>
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                          Máximo 5MB. Formatos: JPG, PNG, GIF, WebP
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
-
-                  {/* Photo Gallery */}
-                  {selectedCase.Photos && selectedCase.Photos.length > 0 ? (
-                    <Grid container spacing={2}>
-                      {selectedCase.Photos.map((photo) => (
-                        <Grid item xs={12} sm={6} md={4} key={photo.id}>
-                          <Card variant="outlined">
-                            <Box
-                              component="img"
-                              src={`${API_URL.replace('/api', '')}${photo.photoUrl}`}
-                              alt={photo.description || 'Foto del tratamiento'}
-                              sx={{
-                                width: '100%',
-                                height: 200,
-                                objectFit: 'cover',
-                                cursor: 'pointer'
-                              }}
-                              onClick={() => window.open(`${API_URL.replace('/api', '')}${photo.photoUrl}`, '_blank')}
-                            />
-                            <CardContent>
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                <Chip
-                                  label={
-                                    photo.photoType === 'before' ? 'Antes' :
-                                    photo.photoType === 'after' ? 'Después' : 'Durante'
-                                  }
-                                  color={
-                                    photo.photoType === 'before' ? 'warning' :
-                                    photo.photoType === 'after' ? 'success' : 'primary'
-                                  }
-                                  size="small"
-                                />
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleDeletePhoto(photo.id)}
-                                  title="Eliminar foto"
+                              {buildTimelineEvents().map((event, index) => (
+                                <Box
+                                  key={event.id}
+                                  sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    minWidth: 160,
+                                    position: 'relative',
+                                    zIndex: 1
+                                  }}
                                 >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Box>
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                {formatDate(photo.uploadDate)}
-                              </Typography>
-                              {photo.description && (
-                                <Typography variant="body2" sx={{ mt: 1 }}>
-                                  {photo.description}
-                                </Typography>
-                              )}
-                            </CardContent>
-                          </Card>
+                                  {/* Timeline dot */}
+                                  <Box sx={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: '50%',
+                                    bgcolor: event.type === 'prescription' ? 'primary.main' : 'success.main',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    boxShadow: 2
+                                  }}>
+                                    {event.type === 'prescription' ?
+                                      <MedicationIcon fontSize="small" /> :
+                                      <PhotoIcon fontSize="small" />
+                                    }
+                                  </Box>
+
+                                  {/* Event card */}
+                                  <Card
+                                    variant="outlined"
+                                    sx={{
+                                      mt: 1,
+                                      width: 150,
+                                      cursor: event.type === 'photo' ? 'pointer' : 'default',
+                                      '&:hover': { boxShadow: 2 }
+                                    }}
+                                    onClick={() => {
+                                      if (event.type === 'photo') {
+                                        window.open(`${API_URL.replace('/api', '')}${event.data.photoUrl}`, '_blank');
+                                      }
+                                    }}
+                                  >
+                                    {event.type === 'photo' && (
+                                      <Box
+                                        component="img"
+                                        src={`${API_URL.replace('/api', '')}${event.data.photoUrl}`}
+                                        alt={event.title}
+                                        sx={{ width: '100%', height: 80, objectFit: 'cover' }}
+                                      />
+                                    )}
+                                    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                                      <Typography variant="caption" color="text.secondary" display="block">
+                                        {formatDate(event.date)}
+                                      </Typography>
+                                      <Typography variant="body2" fontWeight="bold" noWrap>
+                                        {event.title}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary" noWrap>
+                                        {event.subtitle}
+                                      </Typography>
+                                      {event.type === 'prescription' && (
+                                        <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5 }}>
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEditPrescription(event.data);
+                                            }}
+                                          >
+                                            <EditIcon sx={{ fontSize: 14 }} />
+                                          </IconButton>
+                                          <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeletePrescription(event.data.id);
+                                            }}
+                                          >
+                                            <DeleteIcon sx={{ fontSize: 14 }} />
+                                          </IconButton>
+                                        </Box>
+                                      )}
+                                    </CardContent>
+                                  </Card>
+                                </Box>
+                              ))}
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                            No hay eventos registrados en el historial
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Photo Upload Section */}
+                    <Card sx={{ mt: 2 }}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <PhotoIcon color="success" />
+                          <Typography variant="subtitle1" fontWeight="bold">
+                            Agregar Foto
+                          </Typography>
+                        </Box>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid item xs={12} sm={3}>
+                            <TextField
+                              fullWidth
+                              select
+                              size="small"
+                              label="Tipo"
+                              value={selectedPhotoType}
+                              onChange={(e) => setSelectedPhotoType(e.target.value)}
+                            >
+                              <MenuItem value="before">Antes</MenuItem>
+                              <MenuItem value="during">Durante</MenuItem>
+                              <MenuItem value="after">Después</MenuItem>
+                            </TextField>
+                          </Grid>
+                          <Grid item xs={12} sm={5}>
+                            <TextField
+                              fullWidth
+                              size="small"
+                              label="Descripción"
+                              value={photoDescription}
+                              onChange={(e) => setPhotoDescription(e.target.value)}
+                              placeholder="Ej: Primera sesión..."
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <Button
+                              variant="contained"
+                              component="label"
+                              fullWidth
+                              color="success"
+                              disabled={uploadingPhoto}
+                              startIcon={uploadingPhoto ? <CircularProgress size={20} /> : <PhotoIcon />}
+                            >
+                              {uploadingPhoto ? 'Subiendo...' : 'Subir Foto'}
+                              <input
+                                type="file"
+                                hidden
+                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                onChange={handlePhotoUpload}
+                              />
+                            </Button>
+                          </Grid>
                         </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 2 }}>
-                      No hay fotos registradas
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                </Grid>
+              </Box>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDetails}>Cerrar</Button>
+        <DialogActions sx={{ p: 2, bgcolor: 'grey.100' }}>
+          <Button onClick={handleCloseDetails} variant="outlined">
+            Cerrar
+          </Button>
         </DialogActions>
       </Dialog>
 
