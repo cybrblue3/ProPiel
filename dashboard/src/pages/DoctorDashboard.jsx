@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -30,7 +31,8 @@ import {
   CalendarToday as CalendarIcon,
   AccessTime as TimeIcon,
   Phone as PhoneIcon,
-  Email as EmailIcon
+  Email as EmailIcon,
+  FolderShared as HistoryIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +57,7 @@ const formatDate = (dateString) => {
 };
 
 const DoctorDashboard = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [appointments, setAppointments] = useState([]);
   const [filteredAppointments, setFilteredAppointments] = useState([]);
@@ -340,6 +343,13 @@ const DoctorDashboard = () => {
                         title="Ver paciente"
                       >
                         <ViewIcon />
+                      </IconButton>
+                      <IconButton
+                        color="secondary"
+                        onClick={() => navigate(`/patients/${appointment.patientId}/medical-history`)}
+                        title="Ver historial médico"
+                      >
+                        <HistoryIcon />
                       </IconButton>
                       <IconButton
                         color="info"

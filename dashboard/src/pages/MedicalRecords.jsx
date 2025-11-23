@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -34,6 +35,7 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  FolderShared as HistoryIcon,
   Notes as NotesIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
@@ -65,6 +67,7 @@ const formatDate = (dateString) => {
 };
 
 function MedicalRecords() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -741,6 +744,14 @@ function MedicalRecords() {
                       title="Ver detalles"
                     >
                       <VisibilityIcon />
+                    </IconButton>
+                    <IconButton
+                      color="info"
+                      onClick={() => navigate(`/patients/${medicalCase.patientId}/medical-history`)}
+                      size="small"
+                      title="Ver historial médico completo"
+                    >
+                      <HistoryIcon />
                     </IconButton>
                     <IconButton
                       color="secondary"

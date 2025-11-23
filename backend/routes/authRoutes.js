@@ -50,7 +50,7 @@ router.post('/register', async (req, res) => {
       username,
       email,
       password,
-      role: role || 'receptionist',
+      role: role || 'doctor',
       fullName,
       phone
     });

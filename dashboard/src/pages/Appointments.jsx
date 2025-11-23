@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -24,24 +25,36 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  InputAdornment
+  InputAdornment,
+  Tabs,
+  Tab,
+  Badge
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Visibility as ViewIcon,
-  Edit as EditIcon,
   Cancel as CancelIcon,
   CheckCircle as CheckIcon,
   FilterList as FilterIcon,
   Refresh as RefreshIcon,
-  WhatsApp as WhatsAppIcon
+  WhatsApp as WhatsAppIcon,
+  AttachFile as AttachIcon,
+  FolderShared as HistoryIcon
 } from '@mui/icons-material';
 import { adminAPI } from '../services/api';
 
 const Appointments = () => {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Tab filter state
+  const [activeTab, setActiveTab] = useState(0); // 0=Todas, 1=Pendientes, 2=Hoy, 3=Confirmadas
+
+  // Counts for badges
+  const [pendingCount, setPendingCount] = useState(0);
+  const [todayCount, setTodayCount] = useState(0);
 
   const calculateAge = (birthDate) => {
     if (!birthDate) return 'N/A';
@@ -64,7 +77,7 @@ const Appointments = () => {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -84,6 +97,12 @@ const Appointments = () => {
   const [whatsappUrl, setWhatsappUrl] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
   const loadAppointments = async () => {
     try {
       setLoading(true);
@@ -94,13 +113,24 @@ const Appointments = () => {
         limit: rowsPerPage
       };
 
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
+      // Apply search term
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
       }
 
-      if (dateFilter) {
+      // Apply tab filter
+      if (activeTab === 1) {
+        params.status = 'pending';
+      } else if (activeTab === 2) {
+        params.date = getTodayDate();
+      } else if (activeTab === 3) {
+        params.status = 'confirmed';
+      }
+
+      // Apply additional filters
+      if (dateFilter && activeTab !== 2) {
         params.date = dateFilter;
-      } else if (startDate || endDate) {
+      } else if ((startDate || endDate) && activeTab !== 2) {
         if (startDate) params.startDate = startDate;
         if (endDate) params.endDate = endDate;
       }
@@ -116,9 +146,46 @@ const Appointments = () => {
     }
   };
 
+  // Load counts for badges
+  const loadCounts = async () => {
+    try {
+      // Get pending count
+      const pendingResponse = await adminAPI.getAllAppointments({ status: 'pending', limit: 1 });
+      setPendingCount(pendingResponse.data.data.pagination.total);
+
+      // Get today count
+      const todayResponse = await adminAPI.getAllAppointments({ date: getTodayDate(), limit: 1 });
+      setTodayCount(todayResponse.data.data.pagination.total);
+    } catch (err) {
+      console.error('Error loading counts:', err);
+    }
+  };
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPage(0); // Reset to first page when searching
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     loadAppointments();
-  }, [page, rowsPerPage, statusFilter, dateFilter, startDate, endDate]);
+    loadCounts();
+  }, [page, rowsPerPage, activeTab, dateFilter, startDate, endDate, debouncedSearchTerm]);
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    setPage(0);
+    // Clear date filters when switching to "Hoy" tab
+    if (newValue === 2) {
+      setDateFilter('');
+      setStartDate('');
+      setEndDate('');
+    }
+  };
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -158,15 +225,12 @@ const Appointments = () => {
       setActionLoading(true);
       const response = await adminAPI.cancelAppointment(selectedAppointment.id, cancellationReason);
 
-      console.log('Cancel response:', response.data);
-
       // Store WhatsApp URL for opening
       if (response.data.whatsapp && response.data.whatsapp.success) {
-        console.log('WhatsApp available:', response.data.whatsapp.url);
         setWhatsappUrl(response.data.whatsapp.url);
         setSuccessMessage(`Cita cancelada exitosamente. Notifica al paciente por WhatsApp.`);
 
-        // Try to open immediately using anchor tag to preserve emojis
+        // Open WhatsApp
         const link = document.createElement('a');
         link.href = response.data.whatsapp.url;
         link.target = '_blank';
@@ -175,12 +239,12 @@ const Appointments = () => {
         link.click();
         document.body.removeChild(link);
       } else {
-        console.log('WhatsApp notification not available:', response.data.whatsapp);
         setSuccessMessage('Cita cancelada exitosamente');
       }
 
-      // Reload appointments
+      // Reload appointments and counts
       await loadAppointments();
+      await loadCounts();
 
       setCancelDialogOpen(false);
       setSelectedAppointment(null);
@@ -200,15 +264,12 @@ const Appointments = () => {
       setActionLoading(true);
       const response = await adminAPI.confirmAppointment(selectedAppointment.id);
 
-      console.log('Confirm response:', response.data);
-
       // Store WhatsApp URL for opening
       if (response.data.whatsapp && response.data.whatsapp.success) {
-        console.log('WhatsApp available:', response.data.whatsapp.url);
         setWhatsappUrl(response.data.whatsapp.url);
         setSuccessMessage(`Cita confirmada exitosamente. ¡Notifica al paciente por WhatsApp!`);
 
-        // Try to open immediately using anchor tag to preserve emojis
+        // Open WhatsApp
         const link = document.createElement('a');
         link.href = response.data.whatsapp.url;
         link.target = '_blank';
@@ -217,11 +278,13 @@ const Appointments = () => {
         link.click();
         document.body.removeChild(link);
       } else {
-        console.log('WhatsApp notification not available:', response.data.whatsapp);
         setSuccessMessage('Cita confirmada exitosamente');
       }
 
+      // Reload appointments and counts
       await loadAppointments();
+      await loadCounts();
+
       setConfirmDialogOpen(false);
       setSelectedAppointment(null);
     } catch (err) {
@@ -247,9 +310,8 @@ const Appointments = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    // Parse date as local time to avoid timezone shift
     const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('es-MX', {
       year: 'numeric',
       month: 'short',
@@ -262,28 +324,44 @@ const Appointments = () => {
     return timeString.substring(0, 5);
   };
 
-  // Filter appointments by search term
-  const filteredAppointments = appointments.filter(appointment => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      appointment.Patient?.fullName?.toLowerCase().includes(search) ||
-      appointment.Patient?.phone?.includes(search) ||
-      appointment.Service?.name?.toLowerCase().includes(search) ||
-      appointment.Doctor?.fullName?.toLowerCase().includes(search)
-    );
-  });
+  // Check if appointment is today
+  const isToday = (dateString) => {
+    return dateString === getTodayDate();
+  };
+
+  // Get row background color based on status
+  const getRowStyle = (appointment) => {
+    if (appointment.status === 'pending') {
+      return { bgcolor: 'warning.lighter' };
+    }
+    if (isToday(appointment.appointmentDate) && appointment.status !== 'cancelled') {
+      return { bgcolor: 'info.lighter' };
+    }
+    return {};
+  };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          Gestión de Citas
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h4">
+            Gestión de Citas
+          </Typography>
+          {pendingCount > 0 && (
+            <Chip
+              label={`${pendingCount} pendiente${pendingCount > 1 ? 's' : ''}`}
+              color="warning"
+              size="small"
+            />
+          )}
+        </Box>
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}
-          onClick={loadAppointments}
+          onClick={() => {
+            loadAppointments();
+            loadCounts();
+          }}
           disabled={loading}
         >
           Actualizar
@@ -329,6 +407,33 @@ const Appointments = () => {
         </Alert>
       )}
 
+      {/* Quick Filter Tabs */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          indicatorColor="primary"
+          textColor="primary"
+        >
+          <Tab label="Todas" />
+          <Tab
+            label={
+              <Badge badgeContent={pendingCount} color="warning" max={99}>
+                <Box sx={{ pr: pendingCount > 0 ? 2 : 0 }}>Pendientes</Box>
+              </Badge>
+            }
+          />
+          <Tab
+            label={
+              <Badge badgeContent={todayCount} color="info" max={99}>
+                <Box sx={{ pr: todayCount > 0 ? 2 : 0 }}>Hoy</Box>
+              </Badge>
+            }
+          />
+          <Tab label="Confirmadas" />
+        </Tabs>
+      </Paper>
+
       {/* Filters Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -355,24 +460,6 @@ const Appointments = () => {
               />
             </Grid>
 
-            {/* Status Filter */}
-            <Grid item xs={12} sm={6} md={2}>
-              <TextField
-                select
-                fullWidth
-                label="Estado"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="pending">Pendiente</MenuItem>
-                <MenuItem value="confirmed">Confirmada</MenuItem>
-                <MenuItem value="cancelled">Cancelada</MenuItem>
-                <MenuItem value="completed">Completada</MenuItem>
-                <MenuItem value="no-show">No asistió</MenuItem>
-              </TextField>
-            </Grid>
-
             {/* Single Date Filter */}
             <Grid item xs={12} sm={6} md={2}>
               <TextField
@@ -386,6 +473,7 @@ const Appointments = () => {
                   setEndDate('');
                 }}
                 InputLabelProps={{ shrink: true }}
+                disabled={activeTab === 2}
               />
             </Grid>
 
@@ -401,7 +489,7 @@ const Appointments = () => {
                   setDateFilter('');
                 }}
                 InputLabelProps={{ shrink: true }}
-                disabled={!!dateFilter}
+                disabled={!!dateFilter || activeTab === 2}
               />
             </Grid>
 
@@ -417,19 +505,18 @@ const Appointments = () => {
                   setDateFilter('');
                 }}
                 InputLabelProps={{ shrink: true }}
-                disabled={!!dateFilter}
+                disabled={!!dateFilter || activeTab === 2}
               />
             </Grid>
           </Grid>
 
           {/* Clear Filters */}
-          {(searchTerm || statusFilter !== 'all' || dateFilter || startDate || endDate) && (
+          {(searchTerm || dateFilter || startDate || endDate) && (
             <Box sx={{ mt: 2 }}>
               <Button
                 size="small"
                 onClick={() => {
                   setSearchTerm('');
-                  setStatusFilter('all');
                   setDateFilter('');
                   setStartDate('');
                   setEndDate('');
@@ -458,22 +545,27 @@ const Appointments = () => {
                   <TableCell>Servicio</TableCell>
                   <TableCell>Fecha/Hora</TableCell>
                   <TableCell>Doctor</TableCell>
+                  <TableCell>Comprobante</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredAppointments.length === 0 ? (
+                {appointments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
                         No se encontraron citas
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredAppointments.map((appointment) => (
-                    <TableRow key={appointment.id} hover>
+                  appointments.map((appointment) => (
+                    <TableRow
+                      key={appointment.id}
+                      hover
+                      sx={getRowStyle(appointment)}
+                    >
                       <TableCell>#{appointment.id}</TableCell>
                       <TableCell>
                         <Box>
@@ -485,7 +577,16 @@ const Appointments = () => {
                           </Typography>
                         </Box>
                       </TableCell>
-                      <TableCell>{appointment.Service?.name}</TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2">
+                            {appointment.Service?.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            ${appointment.Service?.price ? (appointment.Service.price * (appointment.Service.depositPercentage || 50) / 100).toFixed(0) : 0} anticipo
+                          </Typography>
+                        </Box>
+                      </TableCell>
                       <TableCell>
                         <Box>
                           <Typography variant="body2">
@@ -497,6 +598,20 @@ const Appointments = () => {
                         </Box>
                       </TableCell>
                       <TableCell>{appointment.Doctor?.fullName}</TableCell>
+                      <TableCell>
+                        {appointment.PaymentProof ? (
+                          <Chip
+                            icon={<AttachIcon />}
+                            label="Ver"
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                            onClick={() => handleViewDetails(appointment.id)}
+                          />
+                        ) : (
+                          <Chip label="Sin" size="small" color="default" variant="outlined" />
+                        )}
+                      </TableCell>
                       <TableCell>{getStatusChip(appointment.status)}</TableCell>
                       <TableCell align="right">
                         <IconButton
@@ -505,6 +620,14 @@ const Appointments = () => {
                           title="Ver detalles"
                         >
                           <ViewIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="secondary"
+                          onClick={() => navigate(`/patients/${appointment.patientId}/medical-history`)}
+                          title="Ver historial médico"
+                        >
+                          <HistoryIcon />
                         </IconButton>
 
                         {appointment.status === 'pending' && (
@@ -602,6 +725,9 @@ const Appointments = () => {
                       <strong>Precio:</strong> ${selectedAppointment.Service?.price} MXN
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      <strong>Anticipo:</strong> ${selectedAppointment.Service?.depositAmount || (selectedAppointment.Service?.price * 0.5).toFixed(0)} MXN
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
                       <strong>Estado:</strong> {getStatusChip(selectedAppointment.status)}
                     </Typography>
                   </Grid>
@@ -661,6 +787,32 @@ const Appointments = () => {
           <Button onClick={() => setDetailsOpen(false)} variant="outlined">
             Cerrar
           </Button>
+          {selectedAppointment && selectedAppointment.status === 'pending' && (
+            <>
+              <Button
+                startIcon={<CancelIcon />}
+                color="error"
+                variant="outlined"
+                onClick={() => {
+                  setDetailsOpen(false);
+                  handleCancelClick(selectedAppointment);
+                }}
+              >
+                Rechazar
+              </Button>
+              <Button
+                startIcon={<CheckIcon />}
+                variant="contained"
+                color="success"
+                onClick={() => {
+                  setDetailsOpen(false);
+                  handleConfirmClick(selectedAppointment);
+                }}
+              >
+                Aprobar
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 

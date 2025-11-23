@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -45,7 +46,8 @@ import {
   Email as EmailIcon,
   Cake as CakeIcon,
   Event as EventIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  FolderShared as HistoryIcon
 } from '@mui/icons-material';
 import { patientsAPI, adminAPI } from '../services/api';
 
@@ -79,6 +81,7 @@ const COUNTRY_CODES = [
 ];
 
 const Patients = () => {
+  const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -585,6 +588,14 @@ const Patients = () => {
                         </IconButton>
                         <IconButton
                           size="small"
+                          color="secondary"
+                          onClick={() => navigate(`/patients/${patient.id}/medical-history`)}
+                          title="Ver historial médico"
+                        >
+                          <HistoryIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
                           color="primary"
                           onClick={() => handleEditClick(patient)}
                           title="Editar"
@@ -758,6 +769,16 @@ const Patients = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
+          <Button
+            onClick={() => {
+              setDetailsOpen(false);
+              navigate(`/patients/${selectedPatient.id}/medical-history`);
+            }}
+            variant="contained"
+            startIcon={<HistoryIcon />}
+          >
+            Ver Historial Médico
+          </Button>
           <Button onClick={() => setDetailsOpen(false)} variant="outlined">
             Cerrar
           </Button>

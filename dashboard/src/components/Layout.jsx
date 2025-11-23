@@ -27,7 +27,6 @@ import {
   FolderShared as FolderSharedIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
-  HourglassEmpty as PendingIcon,
   Settings as SettingsIcon,
   AddCircle as AddIcon
 } from '@mui/icons-material';
@@ -63,41 +62,49 @@ const Layout = () => {
 
   // Menu items based on role
   const menuItems = [
+    // DOCTOR MENU ITEMS
     {
-      text: 'Dashboard',
+      text: 'Mi Agenda',
       icon: <DashboardIcon />,
-      path: user?.role === 'doctor' ? '/doctor-dashboard' : '/dashboard',
-      roles: ['admin', 'receptionist', 'doctor']
+      path: '/doctor-dashboard',
+      roles: ['doctor']
+    },
+    {
+      text: 'Mis Pacientes',
+      icon: <PeopleIcon />,
+      path: '/doctor-patients',
+      roles: ['doctor']
+    },
+    // ADMIN MENU ITEMS
+    {
+      text: 'Recepción',
+      icon: <DashboardIcon />,
+      path: '/dashboard',
+      roles: ['admin']
     },
     {
       text: 'Agendar Cita',
       icon: <AddIcon />,
       path: '/book-appointment',
-      roles: ['admin', 'receptionist']
-    },
-    {
-      text: 'Citas Pendientes',
-      icon: <PendingIcon />,
-      path: '/pending-appointments',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Citas',
       icon: <EventIcon />,
       path: '/appointments',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Pacientes',
       icon: <PeopleIcon />,
       path: '/patients',
-      roles: ['admin', 'receptionist']
+      roles: ['admin']
     },
     {
       text: 'Expedientes',
       icon: <FolderSharedIcon />,
       path: '/medical-records',
-      roles: ['admin', 'receptionist', 'doctor']
+      roles: ['admin']
     },
     {
       text: 'Doctores',

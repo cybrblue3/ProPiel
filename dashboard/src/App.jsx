@@ -7,13 +7,14 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import DoctorDashboard from './pages/DoctorDashboard';
 import LogoShowcase from './pages/LogoShowcase';
-import PendingAppointments from './pages/PendingAppointments';
 import Appointments from './pages/Appointments';
 import BookAppointment from './pages/BookAppointment';
 import Patients from './pages/Patients';
 import Doctors from './pages/Doctors';
 import Settings from './pages/Settings';
 import MedicalRecords from './pages/MedicalRecords';
+import PatientMedicalHistory from './pages/PatientMedicalHistory';
+import DoctorPatients from './pages/DoctorPatients';
 
 // Smart redirect based on user role
 function DashboardRedirect() {
@@ -105,7 +106,7 @@ function App() {
               <Route
                 path="dashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <Dashboard />
                   </ProtectedRoute>
                 }
@@ -118,6 +119,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="doctor-patients"
+                element={
+                  <ProtectedRoute allowedRoles={['doctor']}>
+                    <DoctorPatients />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="logos" element={<LogoShowcase />} />
 
               {/* Appointments Routes */}
@@ -126,17 +135,9 @@ function App() {
                 element={<Appointments />}
               />
               <Route
-                path="pending-appointments"
-                element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
-                    <PendingAppointments />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
                 path="book-appointment"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist']}>
+                  <ProtectedRoute allowedRoles={['admin']}>
                     <BookAppointment />
                   </ProtectedRoute>
                 }
@@ -144,6 +145,14 @@ function App() {
               <Route
                 path="patients"
                 element={<Patients />}
+              />
+              <Route
+                path="patients/:patientId/medical-history"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'doctor']}>
+                    <PatientMedicalHistory />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="doctors"
@@ -164,15 +173,15 @@ function App() {
               <Route
                 path="medical-records"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'receptionist', 'doctor']}>
+                  <ProtectedRoute allowedRoles={['admin', 'doctor']}>
                     <MedicalRecords />
                   </ProtectedRoute>
                 }
               />
             </Route>
 
-            {/* 404 Route */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            {/* 404 Route - Use smart redirect */}
+            <Route path="*" element={<DashboardRedirect />} />
           </Routes>
         </Router>
       </AuthProvider>

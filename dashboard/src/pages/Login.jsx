@@ -50,7 +50,8 @@ const Login = () => {
     setLoading(false);
 
     if (result.success) {
-      navigate('/dashboard');
+      // Navigate to index which uses smart redirect based on role
+      navigate('/');
     } else {
       setError(result.message);
     }
@@ -125,9 +126,6 @@ const Login = () => {
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block">
                 • Admin: admin / admin123
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • Recepción: receptionist / receptionist123
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block">
                 • Doctor: derma / derma123

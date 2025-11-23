@@ -4,8 +4,8 @@
 
 // Regex patterns
 const patterns = {
-  // Name: Letters, accents, spaces only (min 7 chars)
-  name: /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]{7,}$/,
+  // Name: Letters, accents, spaces only (min 3 chars)
+  name: /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]{3,}$/,
   // Phone: Exactly 10 digits
   phone: /^\d{10}$/,
   // Email: Standard email format
@@ -44,7 +44,7 @@ const validateName = (name) => {
   if (!patterns.name.test(trimmed)) {
     return {
       valid: false,
-      error: 'Nombre inválido. Solo letras, acentos y espacios (mínimo 7 caracteres)'
+      error: 'Nombre inválido. Solo letras, acentos y espacios (mínimo 3 caracteres)'
     };
   }
 
