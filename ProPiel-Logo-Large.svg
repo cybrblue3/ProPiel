@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="320" viewBox="0 0 800 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="320" fill="white"/>
+
+  <!-- Icon part - Hexagonal design -->
+  <g transform="translate(60, 40) scale(2.2)">
+    <!-- Outer hexagon - strong outline -->
+    <path
+      d="M50 10 L82 30 L82 70 L50 90 L18 70 L18 30 Z"
+      stroke="#1976d2"
+      strokeWidth="3"
+      fill="none"
+    />
+
+    <!-- Inner geometric pattern - 3 small hexagons representing skin layers -->
+    <path
+      d="M50 30 L62 37.5 L62 47.5 L50 55 L38 47.5 L38 37.5 Z"
+      fill="#1976d2"
+      opacity="0.3"
+    />
+
+    <path
+      d="M50 45 L60 51.25 L60 58.75 L50 65 L40 58.75 L40 51.25 Z"
+      fill="#42a5f5"
+      opacity="0.5"
+    />
+
+    <path
+      d="M50 58 L58 62.5 L58 67.5 L50 72 L42 67.5 L42 62.5 Z"
+      fill="#1976d2"
+      opacity="0.7"
+    />
+
+    <!-- Corner accent lines - geometric connection -->
+    <line x1="50" y1="20" x2="50" y2="30" stroke="#42a5f5" strokeWidth="2" />
+    <line x1="50" y1="72" x2="50" y2="80" stroke="#42a5f5" strokeWidth="2" />
+  </g>
+
+  <!-- Text part with proper styling -->
+  <g>
+    <!-- "Pro" text - bold -->
+    <text
+      x="280"
+      y="150"
+      font-family="Inter, Segoe UI, system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif"
+      font-size="90"
+      font-weight="600"
+      fill="#1976d2"
+      style="font-weight: 600;">
+      Pro
+    </text>
+
+    <!-- "Piel" text - light -->
+    <text
+      x="420"
+      y="150"
+      font-family="Inter, Segoe UI, system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif"
+      font-size="90"
+      font-weight="300"
+      fill="#42a5f5"
+      style="font-weight: 300;">
+      Piel
+    </text>
+
+    <!-- "DERMATOLOGÍA" subtitle -->
+    <text
+      x="280"
+      y="200"
+      font-family="Inter, Segoe UI, system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif"
+      font-size="24"
+      font-weight="500"
+      fill="#1976d2"
+      opacity="0.7"
+      letter-spacing="6"
+      style="font-weight: 500; letter-spacing: 6px;">
+      DERMATOLOGÍA
+    </text>
+  </g>
+</svg>

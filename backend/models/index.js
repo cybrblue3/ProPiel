@@ -4,7 +4,9 @@ const Patient = require('./Patient');
 const Doctor = require('./Doctor');
 const Service = require('./Service');
 const Appointment = require('./Appointment');
+const AppointmentStateHistory = require('./AppointmentStateHistory');
 const Payment = require('./Payment');
+const PaymentApprovalLog = require('./PaymentApprovalLog');
 const Consent = require('./Consent');
 const Schedule = require('./Schedule');
 const MedicalRecord = require('./MedicalRecord');
@@ -56,6 +58,22 @@ Payment.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 User.hasMany(Payment, { foreignKey: 'approvedBy', as: 'approvedPayments' });
 Payment.belongsTo(User, { foreignKey: 'approvedBy', as: 'approver' });
 
+// User <-> Payment (rejectedBy - One-to-Many)
+User.hasMany(Payment, { foreignKey: 'rejectedBy', as: 'rejectedPayments' });
+Payment.belongsTo(User, { foreignKey: 'rejectedBy', as: 'rejecter' });
+
+// Payment <-> PaymentApprovalLog (One-to-Many)
+Payment.hasMany(PaymentApprovalLog, { foreignKey: 'paymentId', onDelete: 'CASCADE' });
+PaymentApprovalLog.belongsTo(Payment, { foreignKey: 'paymentId' });
+
+// User <-> PaymentApprovalLog (One-to-Many)
+User.hasMany(PaymentApprovalLog, { foreignKey: 'userId', as: 'paymentActions' });
+PaymentApprovalLog.belongsTo(User, { foreignKey: 'userId' });
+
+// User <-> PaymentProof (verifiedBy - One-to-Many)
+User.hasMany(PaymentProof, { foreignKey: 'verifiedBy', as: 'verifiedProofs' });
+PaymentProof.belongsTo(User, { foreignKey: 'verifiedBy', as: 'verifier' });
+
 // Appointment <-> Consent (One-to-One)
 Appointment.hasOne(Consent, { foreignKey: 'appointmentId', onDelete: 'CASCADE' });
 Consent.belongsTo(Appointment, { foreignKey: 'appointmentId' });
@@ -92,6 +110,14 @@ PaymentProof.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 User.hasMany(Appointment, { foreignKey: 'cancelledBy', as: 'cancelledAppointments' });
 Appointment.belongsTo(User, { foreignKey: 'cancelledBy', as: 'canceller' });
 
+// Appointment <-> AppointmentStateHistory (One-to-Many)
+Appointment.hasMany(AppointmentStateHistory, { foreignKey: 'appointmentId', onDelete: 'CASCADE' });
+AppointmentStateHistory.belongsTo(Appointment, { foreignKey: 'appointmentId' });
+
+// User <-> AppointmentStateHistory (One-to-Many)
+User.hasMany(AppointmentStateHistory, { foreignKey: 'changedBy', as: 'appointmentStateChanges' });
+AppointmentStateHistory.belongsTo(User, { foreignKey: 'changedBy', as: 'changer' });
+
 // Patient <-> MedicalCase (One-to-Many)
 Patient.hasMany(MedicalCase, { foreignKey: 'patientId', onDelete: 'CASCADE' });
 MedicalCase.belongsTo(Patient, { foreignKey: 'patientId' });
@@ -122,7 +148,9 @@ module.exports = {
   Doctor,
   Service,
   Appointment,
+  AppointmentStateHistory,
   Payment,
+  PaymentApprovalLog,
   Consent,
   Schedule,
   MedicalRecord,

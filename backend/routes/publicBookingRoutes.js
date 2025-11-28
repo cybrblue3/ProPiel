@@ -10,10 +10,12 @@ const {
   Doctor,
   Patient,
   Appointment,
+  Payment,
   AppointmentHold,
   PaymentProof,
   PaymentConfig,
-  BlockedDate
+  BlockedDate,
+  Consent
 } = require('../models');
 
 // Middleware
@@ -302,9 +304,10 @@ router.post('/booking/step3', uploadPaymentProof, async (req, res) => {
       });
     }
 
-    // Find and validate hold
+    // Find and validate hold (include Service for pricing)
     const hold = await AppointmentHold.findOne({
       where: { holdToken },
+      include: [{ model: Service }],
       lock: t.LOCK.UPDATE,
       transaction: t
     });
@@ -386,6 +389,26 @@ router.post('/booking/step3', uploadPaymentProof, async (req, res) => {
       bookedByEmail: data.bookingForSelf ? null : data.bookerEmail,
       bookedByRelationship: data.bookingForSelf ? null : data.bookerRelationship,
       paymentReference: hold.paymentReference
+    }, { transaction: t });
+
+    // Get service pricing info
+    const service = hold.Service;
+    const totalAmount = parseFloat(service.price);
+    const depositPercentage = service.depositPercentage || 50;
+    const depositAmount = (totalAmount * depositPercentage) / 100;
+    const remainingBalance = totalAmount - depositAmount;
+
+    // Create payment record (pending approval)
+    await Payment.create({
+      appointmentId: appointment.id,
+      totalAmount,
+      depositAmount,
+      amount: depositAmount, // Initial payment is the deposit
+      remainingBalance,
+      paymentMethod: 'transfer',
+      status: 'pending',
+      paymentReference: hold.paymentReference,
+      transactionReference: hold.paymentReference
     }, { transaction: t });
 
     // Save payment proof
@@ -566,6 +589,17 @@ router.post('/booking/step4', async (req, res) => {
     appointment.consentPdfPath = relativePath;
     appointment.consentSignedAt = new Date();
     await appointment.save();
+
+    // Create Consent record in database
+    const relativeSignaturePath = `uploads/signatures/${signatureFilename}`;
+    await Consent.create({
+      appointmentId: appointment.id,
+      patientId: appointment.Patient.id,
+      signatureImageUrl: relativeSignaturePath,
+      consentText: 'Consentimiento informado firmado digitalmente por el paciente al momento de realizar la reserva.',
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('user-agent')
+    });
 
     res.json({
       success: true,

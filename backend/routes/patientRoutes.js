@@ -11,14 +11,45 @@ router.use(auth);
 
 // ===================================
 // GET /api/patients
-// Get all patients
+// Get all patients (doctors only see their own patients)
 // ===================================
 router.get('/', async (req, res) => {
   try {
-    const patients = await Patient.findAll({
-      where: { isActive: true },
-      order: [['fullName', 'ASC']]
-    });
+    let patients;
+
+    // If user is a doctor, only show patients they have appointments with
+    if (req.userRole === 'doctor') {
+      const doctor = await Doctor.findOne({ where: { userId: req.userId } });
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Doctor no encontrado'
+        });
+      }
+
+      // Get unique patient IDs from appointments with this doctor
+      const appointments = await Appointment.findAll({
+        where: { doctorId: doctor.id },
+        attributes: ['patientId'],
+        group: ['patientId']
+      });
+
+      const patientIds = [...new Set(appointments.map(apt => apt.patientId))];
+
+      patients = await Patient.findAll({
+        where: {
+          id: patientIds,
+          isActive: true
+        },
+        order: [['fullName', 'ASC']]
+      });
+    } else {
+      // Admin and superadmin see all patients
+      patients = await Patient.findAll({
+        where: { isActive: true },
+        order: [['fullName', 'ASC']]
+      });
+    }
 
     res.json({
       success: true,
@@ -148,9 +179,26 @@ router.get('/:id/medical-history', async (req, res) => {
       });
     }
 
-    // Get all appointments for this patient
+    // Build where clauses based on user role
+    const appointmentWhere = { patientId };
+    const medicalCaseWhere = { patientId };
+
+    // If user is a doctor, only show their own appointments and medical cases
+    if (req.userRole === 'doctor') {
+      const doctor = await Doctor.findOne({ where: { userId: req.userId } });
+      if (!doctor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Doctor no encontrado'
+        });
+      }
+      appointmentWhere.doctorId = doctor.id;
+      medicalCaseWhere.doctorId = doctor.id;
+    }
+
+    // Get appointments for this patient (filtered by doctor if applicable)
     const appointments = await Appointment.findAll({
-      where: { patientId },
+      where: appointmentWhere,
       include: [
         {
           model: Doctor,
@@ -168,9 +216,9 @@ router.get('/:id/medical-history', async (req, res) => {
       order: [['appointmentDate', 'DESC'], ['appointmentTime', 'DESC']]
     });
 
-    // Get all medical cases for this patient
+    // Get medical cases for this patient (filtered by doctor if applicable)
     const medicalCases = await MedicalCase.findAll({
-      where: { patientId },
+      where: medicalCaseWhere,
       include: [
         {
           model: Doctor,
@@ -190,12 +238,12 @@ router.get('/:id/medical-history', async (req, res) => {
       order: [['startDate', 'DESC']]
     });
 
-    // Get all prescriptions for this patient (across all cases)
+    // Get all prescriptions for this patient (across all cases, filtered by doctor if applicable)
     const allPrescriptions = await Prescription.findAll({
       include: [
         {
           model: MedicalCase,
-          where: { patientId },
+          where: medicalCaseWhere,
           attributes: ['id', 'conditionName', 'status'],
           include: [
             {

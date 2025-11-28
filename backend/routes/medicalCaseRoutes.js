@@ -337,4 +337,45 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
+// DELETE /api/medical-cases/:id - Delete medical case and associated records
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find medical case
+    const medicalCase = await MedicalCase.findByPk(id);
+    if (!medicalCase) {
+      return res.status(404).json({ success: false, message: 'Caso médico no encontrado' });
+    }
+
+    // Check permissions (doctors can only delete their own cases)
+    if (req.userRole === 'doctor') {
+      const doctor = await Doctor.findOne({ where: { userId: req.userId } });
+      if (doctor && medicalCase.doctorId !== doctor.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permiso para eliminar este caso'
+        });
+      }
+    }
+
+    // Delete associated prescriptions first
+    await Prescription.destroy({ where: { medicalCaseId: id } });
+
+    // Delete associated photos
+    await Photo.destroy({ where: { medicalCaseId: id } });
+
+    // Delete the medical case
+    await medicalCase.destroy();
+
+    res.json({
+      success: true,
+      message: 'Diagnóstico médico eliminado exitosamente'
+    });
+  } catch (error) {
+    console.error('Error deleting medical case:', error);
+    res.status(500).json({ success: false, message: 'Error al eliminar caso médico' });
+  }
+});
+
 module.exports = router;

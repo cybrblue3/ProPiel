@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import MedicalRecords from './pages/MedicalRecords';
 import PatientMedicalHistory from './pages/PatientMedicalHistory';
 import DoctorPatients from './pages/DoctorPatients';
+import Reports from './pages/Reports';
 
 // Smart redirect based on user role
 function DashboardRedirect() {
@@ -22,6 +23,9 @@ function DashboardRedirect() {
   const dashboardPath = user?.role === 'doctor' ? '/doctor-dashboard' : '/dashboard';
   return <Navigate to={dashboardPath} replace />;
 }
+
+// Helper to check if role is admin-like (admin or superadmin)
+const adminRoles = ['admin', 'superadmin'];
 
 // Create Material-UI theme
 const theme = createTheme({
@@ -106,7 +110,7 @@ function App() {
               <Route
                 path="dashboard"
                 element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                     <Dashboard />
                   </ProtectedRoute>
                 }
@@ -137,7 +141,7 @@ function App() {
               <Route
                 path="book-appointment"
                 element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                     <BookAppointment />
                   </ProtectedRoute>
                 }
@@ -149,7 +153,7 @@ function App() {
               <Route
                 path="patients/:patientId/medical-history"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'doctor']}>
+                  <ProtectedRoute allowedRoles={['superadmin', 'doctor']}>
                     <PatientMedicalHistory />
                   </ProtectedRoute>
                 }
@@ -157,7 +161,7 @@ function App() {
               <Route
                 path="doctors"
                 element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['superadmin']}>
                     <Doctors />
                   </ProtectedRoute>
                 }
@@ -165,7 +169,7 @@ function App() {
               <Route
                 path="settings"
                 element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['superadmin']}>
                     <Settings />
                   </ProtectedRoute>
                 }
@@ -173,8 +177,16 @@ function App() {
               <Route
                 path="medical-records"
                 element={
-                  <ProtectedRoute allowedRoles={['admin', 'doctor']}>
+                  <ProtectedRoute allowedRoles={['superadmin']}>
                     <MedicalRecords />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="reports"
+                element={
+                  <ProtectedRoute allowedRoles={['superadmin']}>
+                    <Reports />
                   </ProtectedRoute>
                 }
               />

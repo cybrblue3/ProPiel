@@ -57,10 +57,6 @@ const Patient = sequelize.define('Patient', {
       isEmail: true
     }
   },
-  address: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
   emergencyContact: {
     type: DataTypes.STRING(100),
     allowNull: true

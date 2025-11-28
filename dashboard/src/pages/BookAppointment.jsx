@@ -104,7 +104,7 @@ const BookAppointment = () => {
     email: '',
     birthDate: '',
     gender: '',
-    address: ''
+    bloodType: ''
   });
 
   // Validation errors for new patient form
@@ -351,7 +351,7 @@ const BookAppointment = () => {
         email: '',
         birthDate: '',
         gender: '',
-        address: ''
+        bloodType: ''
       });
       setValidationErrors({
         fullName: '',
@@ -551,7 +551,7 @@ const BookAppointment = () => {
       case 1:
         // Doctor Selection (Service auto-selected based on specialty)
         return (
-          <Box sx={{ maxWidth: 700, mx: 'auto' }}>
+          <Box sx={{ maxWidth: { xs: '100%', sm: 700 }, mx: 'auto' }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <ServiceIcon color="primary" />
               Seleccionar Doctor
@@ -656,13 +656,14 @@ const BookAppointment = () => {
                     </Typography>
                   </Box>
                 ) : availableSlots.length > 0 ? (
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(4, 1fr)', md: 'repeat(6, 1fr)' }, gap: 1 }}>
                     {availableSlots.map((slot, index) => (
                       <Button
                         key={index}
                         variant={bookingForm.appointmentTime === slot ? 'contained' : 'outlined'}
                         onClick={() => setBookingForm({ ...bookingForm, appointmentTime: slot })}
                         size="medium"
+                        sx={{ minWidth: 0 }}
                       >
                         {slot}
                       </Button>
@@ -780,21 +781,23 @@ const BookAppointment = () => {
 
           {renderStepContent(activeStep)}
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', gap: 2, mt: 4 }}>
             <Button
               disabled={activeStep === 0}
               onClick={handleBack}
+              sx={{ order: { xs: 2, sm: 1 } }}
             >
               Anterior
             </Button>
 
-            <Box>
+            <Box sx={{ order: { xs: 1, sm: 2 } }}>
               {activeStep === steps.length - 1 ? (
                 <Button
                   variant="contained"
                   onClick={handleSubmit}
                   disabled={loading}
                   startIcon={loading ? <CircularProgress size={20} /> : <CheckIcon />}
+                  fullWidth
                 >
                   {loading ? 'Creando...' : 'Crear Cita'}
                 </Button>
@@ -802,6 +805,7 @@ const BookAppointment = () => {
                 <Button
                   variant="contained"
                   onClick={handleNext}
+                  fullWidth
                 >
                   Siguiente
                 </Button>
@@ -927,15 +931,27 @@ const BookAppointment = () => {
                 <option value="female">Femenino</option>
               </TextField>
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
+                select
                 fullWidth
-                label="Dirección"
-                value={newPatientForm.address}
-                onChange={(e) => setNewPatientForm({ ...newPatientForm, address: e.target.value })}
-                placeholder="Calle, número, colonia, ciudad"
+                label="Tipo de Sangre"
+                value={newPatientForm.bloodType}
+                onChange={(e) => setNewPatientForm({ ...newPatientForm, bloodType: e.target.value })}
                 helperText="Opcional"
-              />
+                SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+              >
+                <option value="">-- No registrado --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </TextField>
             </Grid>
           </Grid>
         </DialogContent>

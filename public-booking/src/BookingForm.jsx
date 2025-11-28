@@ -963,17 +963,23 @@ export default function BookingForm() {
         <Box>
           <Typography variant="body2" gutterBottom>Horarios Disponibles:</Typography>
           {loading ? <CircularProgress size={20} /> : (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {slots.map((slot) => (
-                <Button
-                  key={slot.time}
-                  variant={formData.appointmentTime === slot.time ? 'contained' : 'outlined'}
-                  onClick={() => setFormData({ ...formData, appointmentTime: slot.time })}
-                >
-                  {slot.displayTime}
-                </Button>
-              ))}
-            </Box>
+            slots.length > 0 ? (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {slots.map((slot) => (
+                  <Button
+                    key={slot.time}
+                    variant={formData.appointmentTime === slot.time ? 'contained' : 'outlined'}
+                    onClick={() => setFormData({ ...formData, appointmentTime: slot.time })}
+                  >
+                    {slot.displayTime}
+                  </Button>
+                ))}
+              </Box>
+            ) : formData.appointmentDate ? (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                No hay citas disponibles para este día, por favor seleccione otra fecha.
+              </Alert>
+            ) : null
           )}
         </Box>
       </Box>
@@ -1539,12 +1545,10 @@ export default function BookingForm() {
         fullWidth
         scroll="paper"
       >
-        <DialogTitle>
-          <Typography variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
-            Términos y Condiciones - Clínica ProPiel
-          </Typography>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>
+          Términos y Condiciones - Clínica ProPiel
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ mt: 2 }}>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
             1. Política de Reservas
           </Typography>
@@ -1619,7 +1623,7 @@ export default function BookingForm() {
             Al aceptar estos términos y condiciones, usted confirma haber leído y comprendido todas las políticas de Clínica ProPiel.
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
           <Button onClick={() => setTermsDialogOpen(false)} variant="outlined">
             Cerrar
           </Button>

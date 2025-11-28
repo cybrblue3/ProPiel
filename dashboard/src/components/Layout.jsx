@@ -23,12 +23,11 @@ import {
   People as PeopleIcon,
   Event as EventIcon,
   MedicalServices as MedicalIcon,
-  LocalHospital as HospitalIcon,
-  FolderShared as FolderSharedIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
   Settings as SettingsIcon,
-  AddCircle as AddIcon
+  AddCircle as AddIcon,
+  Assessment as AssessmentIcon
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import Logo5 from './Logo5';
@@ -75,48 +74,43 @@ const Layout = () => {
       path: '/doctor-patients',
       roles: ['doctor']
     },
-    // ADMIN MENU ITEMS
+    // ADMIN & SUPERADMIN MENU ITEMS
     {
       text: 'Recepción',
       icon: <DashboardIcon />,
       path: '/dashboard',
-      roles: ['admin']
+      roles: ['admin', 'superadmin']
     },
     {
       text: 'Agendar Cita',
       icon: <AddIcon />,
       path: '/book-appointment',
-      roles: ['admin']
+      roles: ['admin', 'superadmin']
     },
     {
       text: 'Citas',
       icon: <EventIcon />,
       path: '/appointments',
-      roles: ['admin']
+      roles: ['admin', 'superadmin']
     },
     {
       text: 'Pacientes',
       icon: <PeopleIcon />,
       path: '/patients',
-      roles: ['admin']
+      roles: ['admin', 'superadmin']
     },
+    // SUPERADMIN ONLY
     {
-      text: 'Expedientes',
-      icon: <FolderSharedIcon />,
-      path: '/medical-records',
-      roles: ['admin']
-    },
-    {
-      text: 'Doctores',
-      icon: <HospitalIcon />,
-      path: '/doctors',
-      roles: ['admin']
+      text: 'Reportes',
+      icon: <AssessmentIcon />,
+      path: '/reports',
+      roles: ['superadmin']
     },
     {
       text: 'Configuración',
       icon: <SettingsIcon />,
       path: '/settings',
-      roles: ['admin']
+      roles: ['superadmin']
     }
   ];
 

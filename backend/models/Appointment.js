@@ -43,9 +43,10 @@ const Appointment = sequelize.define('Appointment', {
     allowNull: false
   },
   status: {
-    type: DataTypes.ENUM('pending', 'confirmed', 'cancelled', 'completed', 'no-show'),
+    type: DataTypes.ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no-show'),
     allowNull: false,
-    defaultValue: 'pending'
+    defaultValue: 'pending',
+    comment: 'pending=awaiting approval, confirmed=approved, in_progress=patient in consultation, completed=finished, cancelled=cancelled, no-show=patient did not arrive'
   },
   isFirstVisit: {
     type: DataTypes.BOOLEAN,
@@ -119,6 +120,69 @@ const Appointment = sequelize.define('Appointment', {
     allowNull: true,
     unique: true,
     comment: 'Unique payment reference code (e.g., PROPIEL-A7F2E9)'
+  },
+  // State transition tracking
+  arrivedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When patient arrived at clinic'
+  },
+  arrivedMarkedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'Who marked patient as arrived'
+  },
+  enteredConsultationAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When patient entered consultation room (in_progress state)'
+  },
+  enteredConsultationBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'Who marked patient as entered consultation'
+  },
+  completedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When consultation was completed'
+  },
+  completedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'Who marked consultation as completed'
+  },
+  // Last state change info
+  stateChangedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'Last time status was changed'
+  },
+  stateChangedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'Who last changed the status'
+  },
+  stateChangeReason: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    comment: 'Reason for last status change'
   }
 }, {
   tableName: 'appointments',

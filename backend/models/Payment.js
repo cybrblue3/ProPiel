@@ -16,6 +16,23 @@ const Payment = sequelize.define('Payment', {
     },
     onDelete: 'CASCADE'
   },
+  // Total service amount (full price)
+  totalAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    validate: {
+      min: 0
+    }
+  },
+  // Required deposit amount
+  depositAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    validate: {
+      min: 0
+    }
+  },
+  // Amount actually paid in this payment
   amount: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
@@ -23,8 +40,17 @@ const Payment = sequelize.define('Payment', {
       min: 0
     }
   },
+  // Remaining balance to be paid
+  remainingBalance: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0,
+    validate: {
+      min: 0
+    }
+  },
   paymentMethod: {
-    type: DataTypes.ENUM('cash', 'card', 'transfer', 'other'),
+    type: DataTypes.ENUM('cash', 'transfer', 'other'),
     allowNull: false,
     defaultValue: 'transfer'
   },
@@ -32,6 +58,17 @@ const Payment = sequelize.define('Payment', {
     type: DataTypes.ENUM('pending', 'approved', 'rejected'),
     allowNull: false,
     defaultValue: 'pending'
+  },
+  // Payment reference (e.g., PROPIEL-A7F2E9)
+  paymentReference: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    unique: true
+  },
+  // Bank transaction ID (from payment proof)
+  transactionId: {
+    type: DataTypes.STRING(100),
+    allowNull: true
   },
   proofImageUrl: {
     type: DataTypes.STRING(255),
@@ -45,6 +82,7 @@ const Payment = sequelize.define('Payment', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  // Approval fields
   approvedBy: {
     type: DataTypes.INTEGER,
     allowNull: true,
@@ -55,6 +93,23 @@ const Payment = sequelize.define('Payment', {
   },
   approvedAt: {
     type: DataTypes.DATE,
+    allowNull: true
+  },
+  // Rejection fields
+  rejectedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  rejectedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  rejectionReason: {
+    type: DataTypes.TEXT,
     allowNull: true
   }
 }, {

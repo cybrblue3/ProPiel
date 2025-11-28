@@ -2,6 +2,50 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+// Logo path for PDFs
+const LOGO_PATH = path.join(__dirname, '../assets/logo.png');
+
+/**
+ * Helper function to add logo header to PDFs
+ * @param {PDFDocument} doc - The PDF document
+ * @param {number} logoWidth - Width of the logo (default 180)
+ */
+function addLogoHeader(doc, logoWidth = 180) {
+  try {
+    if (fs.existsSync(LOGO_PATH)) {
+      const pageWidth = doc.page.width;
+      const logoX = (pageWidth - logoWidth) / 2;
+      const startY = doc.y;
+      doc.image(LOGO_PATH, logoX, startY, { width: logoWidth });
+      // Move cursor below the logo (logo height is approximately width * 0.35)
+      doc.y = startY + (logoWidth * 0.35) + 20;
+    } else {
+      // Fallback to text if logo not found
+      doc
+        .fontSize(22)
+        .font('Helvetica-Bold')
+        .fillColor('#1976d2')
+        .text('CLINICA PROPIEL', { align: 'center' })
+        .moveDown(0.3);
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text('Especialistas en Dermatologia', { align: 'center' })
+        .moveDown(0.5);
+    }
+  } catch (err) {
+    console.error('Error adding logo:', err);
+    // Fallback to text
+    doc
+      .fontSize(22)
+      .font('Helvetica-Bold')
+      .fillColor('#1976d2')
+      .text('CLINICA PROPIEL', { align: 'center' })
+      .moveDown(0.5);
+  }
+}
+
 /**
  * Generate an informed consent PDF with patient data and digital signature
  * @param {Object} appointmentData - Appointment and patient information
@@ -13,22 +57,19 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
   return new Promise((resolve, reject) => {
     try {
       // Create a new PDF document
-      const doc = new PDFDocument({ size: 'letter', margin: 50 });
+      const doc = new PDFDocument({ size: 'letter', margin: 50, bufferPages: true });
 
       // Pipe the PDF to a file
       const stream = fs.createWriteStream(outputPdfPath);
       doc.pipe(stream);
 
-      // Header
-      doc
-        .fontSize(20)
-        .font('Helvetica-Bold')
-        .text('CLÍNICA PROPIEL', { align: 'center' })
-        .moveDown(0.5);
+      // Header with logo
+      addLogoHeader(doc);
 
       doc
         .fontSize(16)
         .font('Helvetica-Bold')
+        .fillColor('#333333')
         .text('CONSENTIMIENTO INFORMADO', { align: 'center' })
         .moveDown(1);
 
@@ -48,7 +89,7 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
         .moveDown(0.3)
         .text(`Sexo: ${appointmentData.patientGender === 'male' ? 'Masculino' : 'Femenino'}`)
         .moveDown(0.3)
-        .text(`Teléfono: ${appointmentData.patientPhone || 'No proporcionado'}`)
+        .text(`Telefono: ${appointmentData.patientPhone || 'No proporcionado'}`)
         .moveDown(1);
 
       // Appointment Information Section
@@ -89,12 +130,12 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
 
       // Consent bullet points
       const consentPoints = [
-        'La naturaleza del procedimiento o tratamiento dermatológico que se me realizará',
+        'La naturaleza del procedimiento o tratamiento dermatologico que se me realizara',
         'Los beneficios esperados del tratamiento',
         'Los riesgos y posibles complicaciones asociados',
         'Las alternativas de tratamiento disponibles',
         'Los cuidados post-tratamiento necesarios',
-        'El costo del procedimiento y las políticas de pago de la clínica'
+        'El costo del procedimiento y las politicas de pago de la clinica'
       ];
 
       consentPoints.forEach((point, index) => {
@@ -129,7 +170,7 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
         .text('FIRMA DEL PACIENTE', { underline: true })
         .moveDown(0.5);
 
-      // Add signature image if provided
+      // Add signature image if provided, otherwise show text confirmation
       if (signatureImagePath && fs.existsSync(signatureImagePath)) {
         try {
           doc.image(signatureImagePath, {
@@ -139,11 +180,18 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
           doc.moveDown(0.5);
         } catch (imgError) {
           console.error('Error adding signature image to PDF:', imgError);
-          doc.text('[Firma digital no disponible]');
+          doc
+            .fontSize(10)
+            .font('Helvetica-Oblique')
+            .text('Consentimiento registrado por personal de recepción', { align: 'left' });
           doc.moveDown(1);
         }
       } else {
-        doc.text('[Firma digital]');
+        // No signature - admin created appointment
+        doc
+          .fontSize(10)
+          .font('Helvetica-Oblique')
+          .text('Consentimiento registrado por personal de recepción al momento de agendar la cita.', { align: 'left' });
         doc.moveDown(1);
       }
 
@@ -170,10 +218,13 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
       doc
         .fontSize(8)
         .font('Helvetica')
+        .fillColor('#999999')
         .text(
-          'Este documento ha sido generado electrónicamente y contiene una firma digital válida. ' +
-          'Clínica ProPiel - Sistema de Reservas en Línea',
-          { align: 'center', color: 'gray' }
+          'Este documento ha sido generado electronicamente y contiene una firma digital valida. ' +
+          'Clinica ProPiel - Sistema de Reservas en Linea',
+          50,
+          doc.page.height - 40,
+          { align: 'center', width: 512 }
         );
 
       // Finalize the PDF
@@ -203,30 +254,18 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
 async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'letter', margin: 50 });
+      const doc = new PDFDocument({ size: 'letter', margin: 50, bufferPages: true });
       const stream = fs.createWriteStream(outputPdfPath);
       doc.pipe(stream);
 
-      // Header with clinic info
-      doc
-        .fontSize(22)
-        .font('Helvetica-Bold')
-        .fillColor('#1976d2')
-        .text('CLÍNICA PROPIEL', { align: 'center' })
-        .moveDown(0.3);
-
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .fillColor('#666666')
-        .text('Especialistas en Dermatología', { align: 'center' })
-        .moveDown(0.5);
+      // Header with logo
+      addLogoHeader(doc);
 
       doc
         .fontSize(18)
         .font('Helvetica-Bold')
         .fillColor('#333333')
-        .text('RECETA MÉDICA', { align: 'center' })
+        .text('RECETA MEDICA', { align: 'center' })
         .moveDown(1);
 
       // Prescription number and date
@@ -270,7 +309,7 @@ async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
         doc
           .font('Helvetica-Bold')
           .fillColor('#d32f2f')
-          .text(`⚠ Alergias: ${prescriptionData.patientAllergies}`)
+          .text(`ALERGIAS: ${prescriptionData.patientAllergies}`)
           .font('Helvetica')
           .fillColor('#333333')
           .moveDown(0.3);
@@ -299,7 +338,7 @@ async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
         .fontSize(14)
         .font('Helvetica-Bold')
         .fillColor('#333333')
-        .text(`💊 ${prescriptionData.medicationName}`, { continued: false });
+        .text(`Rx: ${prescriptionData.medicationName}`, { continued: false });
 
       doc.moveDown(0.5);
 
@@ -315,7 +354,7 @@ async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
       }
 
       if (prescriptionData.duration) {
-        doc.text(`Duración: ${prescriptionData.duration}`);
+        doc.text(`Duracion: ${prescriptionData.duration}`);
       }
 
       doc.x = 50;
@@ -392,20 +431,24 @@ async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
       }
 
       if (prescriptionData.doctorLicense) {
-        doc.text(`Cédula Profesional: ${prescriptionData.doctorLicense}`);
+        doc.text(`Cedula Profesional: ${prescriptionData.doctorLicense}`);
       }
 
-      // Footer
-      doc
-        .fontSize(8)
-        .font('Helvetica')
-        .fillColor('#999999')
-        .text(
-          'Este documento ha sido generado electrónicamente por el sistema de Clínica ProPiel.',
-          50,
-          doc.page.height - 50,
-          { align: 'center', width: 512 }
-        );
+      // Footer on all pages
+      const pages = doc.bufferedPageRange();
+      for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#999999')
+          .text(
+            'Este documento ha sido generado electronicamente por el sistema de Clinica ProPiel.',
+            50,
+            doc.page.height - 40,
+            { align: 'center', width: 512 }
+          );
+      }
 
       doc.end();
 
@@ -432,24 +475,12 @@ async function generatePrescriptionPDF(prescriptionData, outputPdfPath) {
 async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'letter', margin: 50 });
+      const doc = new PDFDocument({ size: 'letter', margin: 50, bufferPages: true });
       const stream = fs.createWriteStream(outputPdfPath);
       doc.pipe(stream);
 
-      // Header with clinic info
-      doc
-        .fontSize(24)
-        .font('Helvetica-Bold')
-        .fillColor('#1976d2')
-        .text('CLÍNICA PROPIEL', { align: 'center' })
-        .moveDown(0.3);
-
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .fillColor('#666666')
-        .text('Especialistas en Dermatología', { align: 'center' })
-        .moveDown(0.5);
+      // Header with logo
+      addLogoHeader(doc);
 
       doc
         .fontSize(18)
@@ -468,7 +499,7 @@ async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
         .fontSize(12)
         .font('Helvetica')
         .fillColor('#1976d2')
-        .text('No. de Confirmación', 150, confirmBoxY + 10, { width: 312, align: 'center' });
+        .text('No. de Confirmacion', 150, confirmBoxY + 10, { width: 312, align: 'center' });
 
       doc
         .fontSize(18)
@@ -546,7 +577,7 @@ async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
 
       doc
         .font('Helvetica-Bold')
-        .text('Duración:', leftCol, doc.y);
+        .text('Duracion:', leftCol, doc.y);
       doc
         .font('Helvetica')
         .text(`${appointmentData.serviceDuration || 30} minutos`, leftCol + 80, doc.y);
@@ -601,7 +632,7 @@ async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
       if (appointmentData.patientPhone) {
         doc
           .font('Helvetica-Bold')
-          .text('Teléfono:', leftCol, doc.y);
+          .text('Telefono:', leftCol, doc.y);
         doc
           .font('Helvetica')
           .text(appointmentData.patientPhone, leftCol + 80, doc.y);
@@ -637,29 +668,33 @@ async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
         .fontSize(10)
         .font('Helvetica')
         .fillColor('#333333')
-        .text('• Por favor llegue 10 minutos antes de su cita', 70)
-        .text('• Traiga este comprobante impreso o en su celular', 70)
-        .text('• En caso de no poder asistir, cancele con 24 horas de anticipación', 70);
+        .text('- Por favor llegue 10 minutos antes de su cita', 70)
+        .text('- Traiga este comprobante impreso o en su celular', 70)
+        .text('- En caso de no poder asistir, cancele con 24 horas de anticipacion', 70);
 
       doc.y += 40;
 
-      // Footer
-      doc
-        .fontSize(8)
-        .font('Helvetica')
-        .fillColor('#999999')
-        .text(
-          `Documento generado el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
-          50,
-          doc.page.height - 70,
-          { align: 'center', width: 512 }
-        )
-        .text(
-          'Clínica ProPiel - Sistema de Reservas en Línea',
-          50,
-          doc.page.height - 50,
-          { align: 'center', width: 512 }
-        );
+      // Footer on all pages
+      const pages = doc.bufferedPageRange();
+      for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#999999')
+          .text(
+            `Documento generado el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+            50,
+            doc.page.height - 55,
+            { align: 'center', width: 512 }
+          )
+          .text(
+            'Clinica ProPiel - Sistema de Reservas en Linea',
+            50,
+            doc.page.height - 40,
+            { align: 'center', width: 512 }
+          );
+      }
 
       doc.end();
 
@@ -686,9 +721,30 @@ async function generateAppointmentReceiptPDF(appointmentData, outputPdfPath) {
 async function generateExpedientePDF(patientData, outputPdfPath) {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'letter', margin: 40, bufferPages: true });
+      const doc = new PDFDocument({ size: 'letter', margin: 40 });
       const stream = fs.createWriteStream(outputPdfPath);
       doc.pipe(stream);
+
+      // Track page count for footer
+      let pageCount = 1;
+
+      // Helper function to add footer to current page
+      const addFooter = (currentPage, totalPages) => {
+        const savedY = doc.y;
+        const savedX = doc.x;
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#999999')
+          .text(
+            `Expediente generado el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })} | Pagina ${currentPage} de ${totalPages}`,
+            40,
+            doc.page.height - 50,
+            { align: 'center', width: 532, lineBreak: false }
+          );
+        doc.y = savedY;
+        doc.x = savedX;
+      };
 
       // Helper function to format dates
       const formatDate = (date) => {
@@ -701,20 +757,8 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
       };
 
       // ========== PAGE 1: Patient Info & Summary ==========
-      // Header
-      doc
-        .fontSize(24)
-        .font('Helvetica-Bold')
-        .fillColor('#1976d2')
-        .text('CLÍNICA PROPIEL', { align: 'center' })
-        .moveDown(0.3);
-
-      doc
-        .fontSize(10)
-        .font('Helvetica')
-        .fillColor('#666666')
-        .text('Especialistas en Dermatología', { align: 'center' })
-        .moveDown(0.5);
+      // Header with logo
+      addLogoHeader(doc);
 
       doc
         .fontSize(18)
@@ -748,7 +792,7 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
         .fontSize(14)
         .font('Helvetica-Bold')
         .fillColor('#1976d2')
-        .text('DATOS PERSONALES')
+        .text('DATOS PERSONALES', 40)
         .moveDown(0.5);
 
       const infoY = doc.y;
@@ -763,7 +807,7 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
         .text('Nombre:', col1, infoY);
       doc.font('Helvetica').text(patientData.patient.fullName, col1 + 70, infoY);
 
-      doc.font('Helvetica-Bold').text('Teléfono:', col1, infoY + 18);
+      doc.font('Helvetica-Bold').text('Telefono:', col1, infoY + 18);
       doc.font('Helvetica').text(patientData.patient.phone || 'No registrado', col1 + 70, infoY + 18);
 
       doc.font('Helvetica-Bold').text('Email:', col1, infoY + 36);
@@ -794,7 +838,7 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
           .fontSize(10)
           .font('Helvetica-Bold')
           .fillColor('#d32f2f')
-          .text('⚠ ALERGIAS: ', 50, allergyY + 10, { continued: true })
+          .text('ALERGIAS: ', 50, allergyY + 10, { continued: true })
           .font('Helvetica')
           .text(patientData.patient.allergies);
 
@@ -803,55 +847,21 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
 
       doc.moveDown(1);
 
-      // Summary Statistics
-      doc
-        .fontSize(14)
-        .font('Helvetica-Bold')
-        .fillColor('#1976d2')
-        .text('RESUMEN')
-        .moveDown(0.5);
-
-      // Stats boxes
-      const statsY = doc.y;
-      const boxWidth = 120;
-      const boxSpacing = 15;
-
-      // Appointments box
-      doc.rect(40, statsY, boxWidth, 50).fillAndStroke('#e3f2fd', '#1976d2');
-      doc.fontSize(20).font('Helvetica-Bold').fillColor('#1976d2').text(String(patientData.stats.appointments), 40, statsY + 10, { width: boxWidth, align: 'center' });
-      doc.fontSize(9).font('Helvetica').text('Citas', 40, statsY + 35, { width: boxWidth, align: 'center' });
-
-      // Cases box
-      doc.rect(40 + boxWidth + boxSpacing, statsY, boxWidth, 50).fillAndStroke('#e8f5e9', '#4caf50');
-      doc.fontSize(20).font('Helvetica-Bold').fillColor('#4caf50').text(String(patientData.stats.cases), 40 + boxWidth + boxSpacing, statsY + 10, { width: boxWidth, align: 'center' });
-      doc.fontSize(9).font('Helvetica').text('Condiciones', 40 + boxWidth + boxSpacing, statsY + 35, { width: boxWidth, align: 'center' });
-
-      // Prescriptions box
-      doc.rect(40 + (boxWidth + boxSpacing) * 2, statsY, boxWidth, 50).fillAndStroke('#fff3e0', '#ff9800');
-      doc.fontSize(20).font('Helvetica-Bold').fillColor('#ff9800').text(String(patientData.stats.prescriptions), 40 + (boxWidth + boxSpacing) * 2, statsY + 10, { width: boxWidth, align: 'center' });
-      doc.fontSize(9).font('Helvetica').text('Recetas', 40 + (boxWidth + boxSpacing) * 2, statsY + 35, { width: boxWidth, align: 'center' });
-
-      // Photos box
-      doc.rect(40 + (boxWidth + boxSpacing) * 3, statsY, boxWidth, 50).fillAndStroke('#f3e5f5', '#9c27b0');
-      doc.fontSize(20).font('Helvetica-Bold').fillColor('#9c27b0').text(String(patientData.stats.photos || 0), 40 + (boxWidth + boxSpacing) * 3, statsY + 10, { width: boxWidth, align: 'center' });
-      doc.fontSize(9).font('Helvetica').text('Fotos', 40 + (boxWidth + boxSpacing) * 3, statsY + 35, { width: boxWidth, align: 'center' });
-
-      doc.y = statsY + 70;
-      doc.moveDown(1);
-
       // ========== Medical Cases Section ==========
       if (patientData.medicalCases && patientData.medicalCases.length > 0) {
         doc
           .fontSize(14)
           .font('Helvetica-Bold')
           .fillColor('#1976d2')
-          .text('CONDICIONES MÉDICAS')
+          .text('CONDICIONES MEDICAS', 40)
           .moveDown(0.5);
 
         patientData.medicalCases.forEach((medCase, index) => {
-          // Check if we need a new page
-          if (doc.y > 650) {
+          // Check if we need a new page (leave space for footer)
+          if (doc.y > doc.page.height - 170) {
+            addFooter(pageCount, pageCount); // Add footer before new page
             doc.addPage();
+            pageCount++;
             doc.y = 50;
           }
 
@@ -893,8 +903,11 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
 
       // ========== Recent Prescriptions Section ==========
       if (patientData.prescriptions && patientData.prescriptions.length > 0) {
-        if (doc.y > 600) {
+        // Check if we need a new page for prescriptions section
+        if (doc.y > doc.page.height - 200) {
+          addFooter(pageCount, pageCount);
           doc.addPage();
+          pageCount++;
           doc.y = 50;
         }
 
@@ -903,14 +916,17 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
           .fontSize(14)
           .font('Helvetica-Bold')
           .fillColor('#1976d2')
-          .text('RECETAS RECIENTES')
+          .text('RECETAS RECIENTES', 40)
           .moveDown(0.5);
 
         // Show last 5 prescriptions
         const recentRx = patientData.prescriptions.slice(0, 5);
         recentRx.forEach((rx) => {
-          if (doc.y > 680) {
+          // Leave room for footer
+          if (doc.y > doc.page.height - 100) {
+            addFooter(pageCount, pageCount);
             doc.addPage();
+            pageCount++;
             doc.y = 50;
           }
 
@@ -918,7 +934,7 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
             .fontSize(10)
             .font('Helvetica-Bold')
             .fillColor('#333333')
-            .text(`💊 ${rx.medicationName}`, 50)
+            .text(`Rx: ${rx.medicationName}`, 50)
             .font('Helvetica')
             .fontSize(9)
             .fillColor('#666666')
@@ -930,25 +946,12 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
           doc
             .fontSize(9)
             .fillColor('#999999')
-            .text(`   ... y ${patientData.prescriptions.length - 5} recetas más`);
+            .text(`   ... y ${patientData.prescriptions.length - 5} recetas mas`);
         }
       }
 
-      // Footer on all pages
-      const pages = doc.bufferedPageRange();
-      for (let i = 0; i < pages.count; i++) {
-        doc.switchToPage(i);
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .fillColor('#999999')
-          .text(
-            `Expediente generado el ${new Date().toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' })} | Página ${i + 1} de ${pages.count}`,
-            40,
-            doc.page.height - 40,
-            { align: 'center', width: 532 }
-          );
-      }
+      // Add footer to the last page
+      addFooter(pageCount, pageCount);
 
       doc.end();
 
@@ -966,4 +969,247 @@ async function generateExpedientePDF(patientData, outputPdfPath) {
   });
 }
 
-module.exports = { generateConsentPDF, generatePrescriptionPDF, generateAppointmentReceiptPDF, generateExpedientePDF };
+/**
+ * Generate Payment Receipt PDF (for SAT/tax declarations)
+ * @param {Object} paymentData - Payment and appointment data
+ * @param {string} outputPath - Output file path
+ * @returns {Promise} Resolves when PDF is created
+ */
+async function generatePaymentReceiptPDF(paymentData, outputPath) {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({
+        size: 'LETTER',
+        margins: { top: 50, bottom: 50, left: 50, right: 50 }
+      });
+      const stream = fs.createWriteStream(outputPath);
+      doc.pipe(stream);
+
+      // Header with clinic logo and info
+      const logoPath = path.join(__dirname, '../assets/ProPiel-Logo-Large.png');
+      if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 50, 40, { width: 120 });
+      }
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text('ProPiel - Clínica Dermatológica', 200, 50, { align: 'right' })
+        .text('Av. Ejemplo #123, Col. Centro', 200, 65, { align: 'right' })
+        .text('Guadalajara, Jalisco, México', 200, 80, { align: 'right' })
+        .text('Tel: (33) 1234-5678', 200, 95, { align: 'right' });
+
+      doc.moveDown(3);
+
+      // Title
+      doc
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .fillColor('#2196F3')
+        .text('RECIBO DE PAGO', { align: 'center' });
+
+      doc.moveDown(0.5);
+
+      // Receipt number and date
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#000000')
+        .text(`Recibo No: ${paymentData.receiptNumber || paymentData.paymentId}`, { align: 'center' })
+        .text(`Fecha: ${paymentData.receiptDate || new Date().toLocaleDateString('es-MX')}`, { align: 'center' });
+
+      doc.moveDown(2);
+
+      // Patient Information Section
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#2196F3')
+        .text('DATOS DEL PACIENTE');
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#000000')
+        .moveDown(0.5);
+
+      const patientY = doc.y;
+      doc.text(`Nombre: ${paymentData.patientName}`, 50, patientY);
+      doc.text(`Email: ${paymentData.patientEmail || 'N/A'}`, 50, patientY + 15);
+      doc.text(`Teléfono: ${paymentData.patientPhone || 'N/A'}`, 50, patientY + 30);
+
+      if (paymentData.patientRFC) {
+        doc.text(`RFC: ${paymentData.patientRFC}`, 50, patientY + 45);
+      }
+
+      doc.moveDown(4);
+
+      // Service Information Section
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#2196F3')
+        .text('DETALLES DEL SERVICIO');
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#000000')
+        .moveDown(0.5);
+
+      const serviceY = doc.y;
+      doc.text(`Servicio: ${paymentData.serviceName}`, 50, serviceY);
+      doc.text(`Doctor: ${paymentData.doctorName}`, 50, serviceY + 15);
+      doc.text(`Fecha de Cita: ${paymentData.appointmentDate}`, 50, serviceY + 30);
+      doc.text(`Hora: ${paymentData.appointmentTime}`, 50, serviceY + 45);
+
+      doc.moveDown(4);
+
+      // Payment Breakdown Section
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#2196F3')
+        .text('DESGLOSE DE PAGO');
+
+      doc.moveDown(1);
+
+      // Create payment breakdown table
+      const tableTop = doc.y;
+      const col1X = 50;
+      const col2X = 400;
+
+      // Table headers (background)
+      doc
+        .rect(col1X, tableTop, 512, 25)
+        .fillAndStroke('#E3F2FD', '#2196F3');
+
+      doc
+        .fontSize(10)
+        .font('Helvetica-Bold')
+        .fillColor('#000000')
+        .text('Concepto', col1X + 10, tableTop + 8)
+        .text('Monto', col2X + 10, tableTop + 8);
+
+      let currentY = tableTop + 30;
+
+      // Row 1: Costo Total
+      doc
+        .font('Helvetica')
+        .text('Costo Total del Servicio:', col1X + 10, currentY)
+        .text(`$${parseFloat(paymentData.totalAmount).toFixed(2)} MXN`, col2X + 10, currentY);
+
+      currentY += 20;
+
+      // Row 2: Depósito
+      if (paymentData.depositAmount && parseFloat(paymentData.depositAmount) > 0) {
+        doc
+          .text('Depósito Inicial:', col1X + 10, currentY)
+          .text(`$${parseFloat(paymentData.depositAmount).toFixed(2)} MXN`, col2X + 10, currentY);
+        currentY += 20;
+      }
+
+      // Row 3: Saldo Pagado
+      if (paymentData.balancePaid && parseFloat(paymentData.balancePaid) > 0) {
+        doc
+          .text('Saldo Pagado:', col1X + 10, currentY)
+          .text(`$${parseFloat(paymentData.balancePaid).toFixed(2)} MXN`, col2X + 10, currentY);
+        currentY += 20;
+      }
+
+      // Total line
+      doc
+        .moveTo(col1X, currentY)
+        .lineTo(562, currentY)
+        .stroke('#2196F3');
+
+      currentY += 10;
+
+      // Row 4: Total Pagado
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .text('TOTAL PAGADO:', col1X + 10, currentY)
+        .text(`$${parseFloat(paymentData.totalPaid).toFixed(2)} MXN`, col2X + 10, currentY);
+
+      doc.moveDown(3);
+
+      // Payment Method Section
+      doc
+        .fontSize(12)
+        .font('Helvetica-Bold')
+        .fillColor('#2196F3')
+        .text('MÉTODO DE PAGO');
+
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#000000')
+        .moveDown(0.5);
+
+      const methodY = doc.y;
+      doc.text(`Método: ${paymentData.paymentMethod === 'transfer' ? 'Transferencia Bancaria' : 'Efectivo'}`, 50, methodY);
+
+      if (paymentData.paymentReference) {
+        doc.text(`Referencia: ${paymentData.paymentReference}`, 50, methodY + 15);
+      }
+
+      doc.moveDown(3);
+
+      // SAT Notice
+      doc
+        .fontSize(9)
+        .font('Helvetica-Italic')
+        .fillColor('#666666')
+        .text(
+          'Este recibo puede ser utilizado para declaraciones fiscales ante el SAT. ' +
+          'Para factura electrónica (CFDI), favor de solicitarla dentro de los 30 días siguientes a la fecha de pago.',
+          {
+            align: 'justify',
+            width: 512
+          }
+        );
+
+      doc.moveDown(2);
+
+      // Footer with signature line
+      const footerY = doc.y + 30;
+      doc
+        .moveTo(200, footerY)
+        .lineTo(400, footerY)
+        .stroke('#000000');
+
+      doc
+        .fontSize(9)
+        .font('Helvetica')
+        .fillColor('#000000')
+        .text('Recibido por ProPiel Clínica Dermatológica', 150, footerY + 10, { align: 'center', width: 300 });
+
+      // Bottom footer
+      doc
+        .fontSize(8)
+        .fillColor('#999999')
+        .text(
+          `Generado el ${new Date().toLocaleString('es-MX')} | ProPiel - Sistema de Gestión Clínica`,
+          50,
+          doc.page.height - 40,
+          { align: 'center', width: 512 }
+        );
+
+      doc.end();
+
+      stream.on('finish', () => {
+        resolve(outputPath);
+      });
+
+      stream.on('error', (err) => {
+        reject(err);
+      });
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+module.exports = { generateConsentPDF, generatePrescriptionPDF, generateAppointmentReceiptPDF, generateExpedientePDF, generatePaymentReceiptPDF };

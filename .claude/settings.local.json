@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(npm run setup:*)",
+      "Bash(node -e:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout 3 bash:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(if not exist \"D:\\Users\\luise\\DevRoad\\ProPiel\\backend\\assets\" mkdir \"D:\\Users\\luise\\DevRoad\\ProPiel\\backend\\assets\")",
+      "Bash(copy:*)",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(node app.js:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 10 node:*)",
+      "Bash(node -p:*)",
+      "Bash(node utils/fixConsentColumn.js:*)",
+      "Bash(del backendutilsfixConsentColumn.js)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

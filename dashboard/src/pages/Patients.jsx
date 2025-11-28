@@ -47,9 +47,12 @@ import {
   Cake as CakeIcon,
   Event as EventIcon,
   Add as AddIcon,
-  FolderShared as HistoryIcon
+  FolderShared as HistoryIcon,
+  Wc as GenderIcon,
+  AccessTime as AgeIcon
 } from '@mui/icons-material';
 import { patientsAPI, adminAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 // Country codes for phone numbers (Mexico first, then alphabetical)
 const COUNTRY_CODES = [
@@ -82,6 +85,7 @@ const COUNTRY_CODES = [
 
 const Patients = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -109,7 +113,7 @@ const Patients = () => {
     email: '',
     birthDate: '',
     gender: '',
-    address: '',
+    bloodType: '',
     allergies: '',
     notes: ''
   });
@@ -122,7 +126,7 @@ const Patients = () => {
     email: '',
     birthDate: '',
     gender: '',
-    address: ''
+    bloodType: ''
   });
 
   // Validation errors
@@ -197,7 +201,7 @@ const Patients = () => {
       email: patient.email || '',
       birthDate: patient.birthDate || '',
       gender: patient.gender || '',
-      address: patient.address || '',
+      bloodType: patient.bloodType || '',
       allergies: patient.allergies || '',
       notes: patient.notes || ''
     });
@@ -375,7 +379,7 @@ const Patients = () => {
         email: '',
         birthDate: '',
         gender: '',
-        address: ''
+        bloodType: ''
       });
       setValidationErrors({
         fullName: '',
@@ -480,15 +484,16 @@ const Patients = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3 }}>
         <Typography variant="h4">
           Gestión de Pacientes
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setCreateOpen(true)}
+            sx={{ flex: { xs: 1, sm: 'none' } }}
           >
             Agregar Paciente
           </Button>
@@ -497,6 +502,7 @@ const Patients = () => {
             startIcon={<RefreshIcon />}
             onClick={loadPatients}
             disabled={loading}
+            sx={{ flex: { xs: 1, sm: 'none' } }}
           >
             Actualizar
           </Button>
@@ -541,8 +547,8 @@ const Patients = () => {
         </Box>
       ) : (
         <Card>
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: 650 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
@@ -586,14 +592,16 @@ const Patients = () => {
                         >
                           <ViewIcon />
                         </IconButton>
-                        <IconButton
-                          size="small"
-                          color="secondary"
-                          onClick={() => navigate(`/patients/${patient.id}/medical-history`)}
-                          title="Ver historial médico"
-                        >
-                          <HistoryIcon />
-                        </IconButton>
+                        {(user?.role === 'superadmin' || user?.role === 'doctor') && (
+                          <IconButton
+                            size="small"
+                            color="secondary"
+                            onClick={() => navigate(`/patients/${patient.id}/medical-history`)}
+                            title="Ver historial médico"
+                          >
+                            <HistoryIcon />
+                          </IconButton>
+                        )}
                         <IconButton
                           size="small"
                           color="primary"
@@ -631,7 +639,7 @@ const Patients = () => {
         fullWidth
       >
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', pb: 2 }}>
-          Detalles del Paciente #{selectedPatient?.id}
+          Detalles del Paciente
         </DialogTitle>
 
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -677,26 +685,23 @@ const Patients = () => {
                             <strong>Fecha de nacimiento:</strong> {formatDate(selectedPatient.birthDate)}
                           </Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ mb: 1 }}>
-                          <strong>Edad:</strong> {calculateAge(selectedPatient.birthDate)} años
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Sexo:</strong> {selectedPatient.gender === 'male' ? 'Masculino' : 'Femenino'}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <AgeIcon fontSize="small" color="action" />
+                          <Typography variant="body2">
+                            <strong>Edad:</strong> {calculateAge(selectedPatient.birthDate)} años
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <GenderIcon fontSize="small" color="action" />
+                          <Typography variant="body2">
+                            <strong>Sexo:</strong> {selectedPatient.gender === 'male' ? 'Masculino' : 'Femenino'}
+                          </Typography>
+                        </Box>
                       </Grid>
                     </Grid>
                   </Paper>
 
-                  {selectedPatient.address && (
-                    <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
-                      <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
-                        Dirección
-                      </Typography>
-                      <Typography variant="body2">{selectedPatient.address}</Typography>
-                    </Paper>
-                  )}
-
-                  {selectedPatient.allergies && (
+                  {user?.role === 'superadmin' && selectedPatient.allergies && (
                     <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
                       <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                         Alergias
@@ -705,7 +710,7 @@ const Patients = () => {
                     </Paper>
                   )}
 
-                  {selectedPatient.notes && (
+                  {user?.role === 'superadmin' && selectedPatient.notes && (
                     <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
                       <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                         Notas
@@ -769,17 +774,7 @@ const Patients = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
-          <Button
-            onClick={() => {
-              setDetailsOpen(false);
-              navigate(`/patients/${selectedPatient.id}/medical-history`);
-            }}
-            variant="contained"
-            startIcon={<HistoryIcon />}
-          >
-            Ver Historial Médico
-          </Button>
-          <Button onClick={() => setDetailsOpen(false)} variant="outlined">
+          <Button onClick={() => setDetailsOpen(false)} variant="contained">
             Cerrar
           </Button>
         </DialogActions>
@@ -901,36 +896,52 @@ const Patients = () => {
                 <option value="female">Femenino</option>
               </TextField>
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
+                select
                 fullWidth
-                label="Dirección"
-                multiline
-                rows={2}
-                value={editForm.address}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-              />
+                label="Tipo de Sangre"
+                value={editForm.bloodType}
+                onChange={(e) => setEditForm({ ...editForm, bloodType: e.target.value })}
+                helperText="Opcional"
+                SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+              >
+                <option value="">-- No registrado --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </TextField>
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Alergias"
-                multiline
-                rows={2}
-                value={editForm.allergies}
-                onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notas"
-                multiline
-                rows={2}
-                value={editForm.notes}
-                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-              />
-            </Grid>
+            {user?.role === 'superadmin' && (
+              <>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Alergias"
+                    multiline
+                    rows={2}
+                    value={editForm.allergies}
+                    onChange={(e) => setEditForm({ ...editForm, allergies: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Notas"
+                    multiline
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  />
+                </Grid>
+              </>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
@@ -1069,15 +1080,27 @@ const Patients = () => {
                 <option value="female">Femenino</option>
               </TextField>
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
+                select
                 fullWidth
-                label="Dirección"
-                value={createForm.address}
-                onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
-                placeholder="Calle, número, colonia, ciudad"
+                label="Tipo de Sangre"
+                value={createForm.bloodType}
+                onChange={(e) => setCreateForm({ ...createForm, bloodType: e.target.value })}
                 helperText="Opcional"
-              />
+                SelectProps={{ native: true }}
+                InputLabelProps={{ shrink: true }}
+              >
+                <option value="">-- No registrado --</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </TextField>
             </Grid>
           </Grid>
         </DialogContent>

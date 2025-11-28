@@ -81,6 +81,7 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      medicalCaseId,
       medicationName,
       dosage,
       frequency,
@@ -109,8 +110,28 @@ router.put('/:id', auth, async (req, res) => {
       }
     }
 
+    // If changing medical case, verify the new one exists and doctor has permission
+    if (medicalCaseId && medicalCaseId !== prescription.medicalCaseId) {
+      const newMedicalCase = await MedicalCase.findByPk(medicalCaseId);
+      if (!newMedicalCase) {
+        return res.status(404).json({ success: false, message: 'Nuevo caso médico no encontrado' });
+      }
+
+      // Check permission for new case if doctor
+      if (req.userRole === 'doctor') {
+        const doctor = await Doctor.findOne({ where: { userId: req.userId } });
+        if (doctor && newMedicalCase.doctorId !== doctor.id) {
+          return res.status(403).json({
+            success: false,
+            message: 'No tienes permiso para mover la prescripción a este caso'
+          });
+        }
+      }
+    }
+
     // Update prescription
     await prescription.update({
+      medicalCaseId: medicalCaseId || prescription.medicalCaseId,
       medicationName,
       dosage,
       frequency,

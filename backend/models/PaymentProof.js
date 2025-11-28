@@ -40,6 +40,31 @@ const PaymentProof = sequelize.define('PaymentProof', {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW
+  },
+  // Verification status
+  status: {
+    type: DataTypes.ENUM('uploaded', 'verified', 'rejected'),
+    allowNull: false,
+    defaultValue: 'uploaded'
+  },
+  // Who verified this proof
+  verifiedBy: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  // When was it verified
+  verifiedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  // Rejection reason if status is rejected
+  rejectionReason: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   tableName: 'payment_proofs',
@@ -47,6 +72,9 @@ const PaymentProof = sequelize.define('PaymentProof', {
   indexes: [
     {
       fields: ['appointmentId']
+    },
+    {
+      fields: ['status']
     }
   ]
 });

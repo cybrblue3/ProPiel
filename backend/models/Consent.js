@@ -27,7 +27,7 @@ const Consent = sequelize.define('Consent', {
   },
   signatureImageUrl: {
     type: DataTypes.STRING(255),
-    allowNull: false
+    allowNull: true
   },
   consentText: {
     type: DataTypes.TEXT,

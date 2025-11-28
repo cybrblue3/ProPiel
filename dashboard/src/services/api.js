@@ -63,7 +63,20 @@ export const appointmentsAPI = {
   confirm: (id) => api.put(`/appointments/${id}/confirm`),
   cancel: (id, reason) => api.put(`/appointments/${id}/cancel`, { reason }),
   getPending: () => api.get('/appointments/pending'),
-  getAvailableSlots: (params) => api.get('/appointments/available-slots', { params })
+  getAvailableSlots: (params) => api.get('/appointments/available-slots', { params }),
+
+  // New state management endpoints
+  getReminders: () => api.get('/appointments/reminders'),
+  changeState: (id, data) => api.patch(`/appointments/${id}/change-state`, data),
+  markArrived: (id) => api.patch(`/appointments/${id}/mark-arrived`),
+  getHistory: (id) => api.get(`/appointments/${id}/history`),
+
+  // Payment endpoints
+  recordBalancePayment: (appointmentId, data) => api.patch(`/appointments/${appointmentId}/record-balance`, data),
+
+  // PDF Downloads
+  downloadConsentPDF: (appointmentId) => api.get(`/appointments/${appointmentId}/consent-pdf`, { responseType: 'blob' }),
+  downloadPaymentReceiptPDF: (appointmentId) => api.get(`/appointments/${appointmentId}/payment-receipt-pdf`, { responseType: 'blob' })
 };
 
 // Services API
@@ -102,7 +115,13 @@ export const adminAPI = {
   getAppointment: (id) => api.get(`/admin/appointments/${id}`),
   confirmAppointment: (id) => api.patch(`/admin/appointments/${id}/confirm`),
   cancelAppointment: (id, cancellationReason) =>
-    api.patch(`/admin/appointments/${id}/cancel`, { cancellationReason })
+    api.patch(`/admin/appointments/${id}/cancel`, { cancellationReason }),
+
+  // Financial Reports
+  getRevenue: () => api.get('/admin/reports/revenue'),
+  getRevenueByService: (params) => api.get('/admin/reports/revenue-by-service', { params }),
+  getRevenueTrends: (params) => api.get('/admin/reports/revenue-trends', { params }),
+  getBestMonths: (params) => api.get('/admin/reports/best-months', { params })
 };
 
 export default api;

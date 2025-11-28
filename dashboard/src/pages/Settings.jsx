@@ -33,9 +33,11 @@ import {
   Edit as EditIcon,
   Event as EventIcon,
   MedicalServices as ServicesIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  LocalHospital as DoctorsIcon
 } from '@mui/icons-material';
 import axios from 'axios';
+import Doctors from './Doctors';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -239,6 +241,7 @@ const Settings = () => {
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
           <Tab icon={<EventIcon />} label="Fechas Bloqueadas" />
           <Tab icon={<ServicesIcon />} label="Servicios" />
+          <Tab icon={<DoctorsIcon />} label="Doctores" />
         </Tabs>
 
         <CardContent>
@@ -397,6 +400,13 @@ const Settings = () => {
                   </Table>
                 </TableContainer>
               )}
+            </Box>
+          )}
+
+          {/* Tab 2: Doctors */}
+          {tabValue === 2 && (
+            <Box>
+              <Doctors />
             </Box>
           )}
         </CardContent>

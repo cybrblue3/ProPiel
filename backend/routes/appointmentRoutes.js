@@ -7,10 +7,14 @@ const { Op } = require('sequelize');
 // Models
 const {
   Appointment,
+  AppointmentStateHistory,
   Patient,
   Doctor,
   Service,
-  PaymentProof
+  PaymentProof,
+  Payment,
+  PaymentApprovalLog,
+  User
 } = require('../models');
 
 // Middleware
@@ -18,7 +22,7 @@ const authenticateToken = require('../middleware/auth');
 
 // Utils
 const { sendWhatsAppNotification } = require('../utils/whatsapp');
-const { generateAppointmentReceiptPDF } = require('../utils/pdfGenerator');
+const { generateAppointmentReceiptPDF, generateConsentPDF, generatePaymentReceiptPDF } = require('../utils/pdfGenerator');
 
 // ===================================
 // GET /api/appointments/pending
@@ -368,11 +372,24 @@ router.put('/:id/confirm', authenticateToken, async (req, res) => {
       });
     }
 
+    // Store previous state for history
+    const previousState = appointment.status;
+
     // Update appointment status
     appointment.status = 'confirmed';
     appointment.confirmedBy = userId;
     appointment.confirmedAt = new Date();
     await appointment.save();
+
+    // Create state history record
+    await AppointmentStateHistory.create({
+      appointmentId: id,
+      previousState: previousState,
+      newState: 'confirmed',
+      changedBy: userId,
+      reason: 'Pago aprobado y cita confirmada',
+      timestamp: new Date()
+    });
 
     // Update patient as confirmed
     await Patient.update(
@@ -455,12 +472,25 @@ router.put('/:id/cancel', authenticateToken, async (req, res) => {
       });
     }
 
+    // Store previous state for history
+    const previousState = appointment.status;
+
     // Update appointment status
     appointment.status = 'cancelled';
     appointment.cancellationReason = reason;
     appointment.cancelledBy = userId;
     appointment.cancelledAt = new Date();
     await appointment.save();
+
+    // Create state history record
+    await AppointmentStateHistory.create({
+      appointmentId: id,
+      previousState: previousState,
+      newState: 'cancelled',
+      changedBy: userId,
+      reason: reason,
+      timestamp: new Date()
+    });
 
     // Generate WhatsApp notification
     const whatsappResult = sendWhatsAppNotification(appointment, 'cancellation');
@@ -681,6 +711,645 @@ router.get('/:id/pdf', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error generating appointment PDF:', error);
     res.status(500).json({ success: false, message: 'Error al generar el PDF' });
+  }
+});
+
+// ===================================
+// GET /api/appointments/:id/consent-pdf
+// Generate and download consent form PDF
+// ===================================
+router.get('/:id/consent-pdf', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find appointment with all related data including consent
+    const appointment = await Appointment.findByPk(id, {
+      include: [
+        { model: Patient, attributes: ['id', 'fullName', 'phone', 'email', 'birthDate', 'gender'] },
+        { model: Doctor, attributes: ['id', 'fullName', 'specialty'] },
+        { model: Service, attributes: ['id', 'name'] },
+        {
+          model: require('../models').Consent,
+          attributes: ['id', 'signatureImageUrl', 'createdAt']
+        }
+      ]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+    }
+
+    // Check if consent exists
+    if (!appointment.Consent) {
+      return res.status(404).json({ success: false, message: 'No se encontró consentimiento para esta cita' });
+    }
+
+    // Format date
+    const formatDate = (date) => {
+      if (!date) return 'N/A';
+      return new Date(date).toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+
+    // Format time
+    const formatTime = (time) => {
+      if (!time) return 'N/A';
+      return time.substring(0, 5);
+    };
+
+    // Prepare data for PDF
+    const appointmentData = {
+      patientName: appointment.Patient?.fullName,
+      patientBirthDate: formatDate(appointment.Patient?.birthDate),
+      patientGender: appointment.Patient?.gender,
+      patientPhone: appointment.Patient?.phone,
+      serviceName: appointment.Service?.name,
+      appointmentDate: formatDate(appointment.appointmentDate),
+      appointmentTime: formatTime(appointment.appointmentTime),
+      doctorName: appointment.Doctor?.fullName
+    };
+
+    // Create uploads/pdfs directory if it doesn't exist
+    const pdfDir = path.join(__dirname, '../uploads/pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    // Get signature image path
+    const signaturePath = appointment.Consent.signatureImageUrl ?
+      path.join(__dirname, '..', appointment.Consent.signatureImageUrl) : null;
+
+    // Generate PDF
+    const fileName = `consentimiento_${appointment.id}_${Date.now()}.pdf`;
+    const outputPath = path.join(pdfDir, fileName);
+
+    await generateConsentPDF(appointmentData, signaturePath, outputPath);
+
+    // Send the PDF file for inline viewing
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+
+    const fileStream = fs.createReadStream(outputPath);
+    fileStream.pipe(res);
+
+    // Clean up the file after sending
+    fileStream.on('end', () => {
+      fs.unlink(outputPath, (err) => {
+        if (err) console.error('Error deleting temp PDF:', err);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error generating consent PDF:', error);
+    res.status(500).json({ success: false, message: 'Error al generar el PDF del consentimiento' });
+  }
+});
+
+// ===================================
+// GET /api/appointments/:id/payment-receipt-pdf
+// Generate and download payment receipt PDF (for SAT/tax declarations)
+// ===================================
+router.get('/:id/payment-receipt-pdf', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find appointment with all payment-related data
+    const appointment = await Appointment.findByPk(id, {
+      include: [
+        { model: Patient, attributes: ['id', 'fullName', 'phone', 'email'] },
+        { model: Doctor, attributes: ['id', 'fullName', 'specialty'] },
+        { model: Service, attributes: ['id', 'name', 'cost'] },
+        {
+          model: Payment,
+          attributes: ['id', 'totalAmount', 'depositAmount', 'remainingBalance', 'status', 'paymentMethod', 'transactionReference']
+        }
+      ]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: 'Cita no encontrada' });
+    }
+
+    if (!appointment.Payment) {
+      return res.status(404).json({ success: false, message: 'No se encontró información de pago para esta cita' });
+    }
+
+    if (appointment.Payment.status !== 'approved') {
+      return res.status(400).json({ success: false, message: 'El pago debe estar aprobado para generar el recibo' });
+    }
+
+    // Calculate total paid (total - remaining balance)
+    const totalPaid = parseFloat(appointment.Payment.totalAmount) - parseFloat(appointment.Payment.remainingBalance);
+    const balancePaid = parseFloat(appointment.Payment.totalAmount) - parseFloat(appointment.Payment.depositAmount);
+
+    // Prepare payment data for PDF
+    const paymentData = {
+      // Receipt info
+      paymentId: appointment.Payment.id,
+      receiptNumber: `REC-${appointment.id}-${Date.now()}`,
+      receiptDate: new Date().toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+
+      // Patient info
+      patientName: appointment.Patient?.fullName || 'N/A',
+      patientEmail: appointment.Patient?.email || null,
+      patientPhone: appointment.Patient?.phone || null,
+      patientRFC: appointment.Patient?.rfc || null,
+
+      // Service info
+      serviceName: appointment.Service?.name || 'N/A',
+      doctorName: appointment.Doctor?.fullName || 'N/A',
+      appointmentDate: new Date(appointment.appointmentDate).toLocaleDateString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      appointmentTime: appointment.appointmentTime,
+
+      // Payment breakdown
+      totalAmount: appointment.Payment.totalAmount,
+      depositAmount: appointment.Payment.depositAmount,
+      balancePaid: balancePaid > 0 ? balancePaid : 0,
+      totalPaid: totalPaid,
+
+      // Payment method
+      paymentMethod: appointment.Payment.paymentMethod || 'cash',
+      paymentReference: appointment.Payment.transactionReference || null
+    };
+
+    // Generate PDF
+    const pdfDir = path.join(__dirname, '../uploads/pdfs');
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+
+    const fileName = `recibo_pago_${appointment.id}_${Date.now()}.pdf`;
+    const outputPath = path.join(pdfDir, fileName);
+
+    await generatePaymentReceiptPDF(paymentData, outputPath);
+
+    // Send the PDF file for inline viewing
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+
+    const fileStream = fs.createReadStream(outputPath);
+    fileStream.pipe(res);
+
+    // Clean up temp file after sending
+    fileStream.on('end', () => {
+      fs.unlink(outputPath, (err) => {
+        if (err) console.error('Error deleting temp PDF:', err);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error generating payment receipt PDF:', error);
+    res.status(500).json({ success: false, message: 'Error al generar el recibo de pago', error: error.message });
+  }
+});
+
+// ===================================
+// GET /api/appointments/reminders
+// Get appointments that need attention (upcoming, late, etc.)
+// For reception dashboard reminder system
+// ===================================
+router.get('/reminders', authenticateToken, async (req, res) => {
+  try {
+    const now = new Date();
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Current time in HH:MM:SS format
+    const currentTime = now.toTimeString().split(' ')[0];
+
+    // Time 15 minutes from now
+    const fifteenMinsFromNow = new Date(now.getTime() + 15 * 60000);
+    const fifteenMinsTime = fifteenMinsFromNow.toTimeString().split(' ')[0];
+
+    // Get today's confirmed appointments
+    const appointments = await Appointment.findAll({
+      where: {
+        appointmentDate: todayStr,
+        status: {
+          [Op.in]: ['confirmed', 'in_progress']
+        }
+      },
+      include: [
+        {
+          model: Patient,
+          attributes: ['id', 'fullName', 'phone', 'phoneCountryCode']
+        },
+        {
+          model: Doctor,
+          attributes: ['id', 'fullName']
+        },
+        {
+          model: Service,
+          attributes: ['id', 'name', 'duration']
+        },
+        {
+          model: Payment,
+          attributes: ['id', 'totalAmount', 'depositAmount', 'remainingBalance', 'status']
+        }
+      ],
+      order: [['appointmentTime', 'ASC']]
+    });
+
+    // Categorize appointments
+    const reminders = {
+      upcoming: [], // 15 mins or less until appointment
+      atTime: [], // At appointment time (within 5 min window)
+      late: [], // Past appointment time, patient hasn't arrived
+      inProgress: [], // Currently in consultation
+      needsPayment: [] // Completed but has remaining balance
+    };
+
+    appointments.forEach(apt => {
+      const aptTime = apt.appointmentTime;
+      const aptDateTime = new Date(`${todayStr}T${aptTime}`);
+      const timeDiff = (aptDateTime - now) / 60000; // Difference in minutes
+
+      if (apt.status === 'in_progress') {
+        reminders.inProgress.push({
+          ...apt.toJSON(),
+          reminderType: 'in_progress',
+          message: `${apt.Patient.fullName} está en consulta`
+        });
+      } else if (timeDiff <= 15 && timeDiff > 5) {
+        reminders.upcoming.push({
+          ...apt.toJSON(),
+          reminderType: 'upcoming',
+          message: `${apt.Patient.fullName} llega en ${Math.round(timeDiff)} minutos`
+        });
+      } else if (timeDiff <= 5 && timeDiff >= -5) {
+        reminders.atTime.push({
+          ...apt.toJSON(),
+          reminderType: 'at_time',
+          message: `${apt.Patient.fullName} debe llegar ahora`
+        });
+      } else if (timeDiff < -5) {
+        reminders.late.push({
+          ...apt.toJSON(),
+          reminderType: 'late',
+          message: `${apt.Patient.fullName} lleva ${Math.abs(Math.round(timeDiff))} minutos de retraso`
+        });
+      }
+    });
+
+    // Get completed appointments with remaining balance
+    const completedWithBalance = await Appointment.findAll({
+      where: {
+        appointmentDate: todayStr,
+        status: 'completed'
+      },
+      include: [
+        {
+          model: Patient,
+          attributes: ['id', 'fullName', 'phone']
+        },
+        {
+          model: Payment,
+          where: {
+            remainingBalance: {
+              [Op.gt]: 0
+            }
+          },
+          attributes: ['id', 'remainingBalance']
+        }
+      ]
+    });
+
+    completedWithBalance.forEach(apt => {
+      reminders.needsPayment.push({
+        ...apt.toJSON(),
+        reminderType: 'needs_payment',
+        message: `${apt.Patient.fullName} debe $${apt.Payment.remainingBalance}`
+      });
+    });
+
+    res.json({
+      success: true,
+      data: reminders,
+      summary: {
+        totalReminders: reminders.upcoming.length + reminders.atTime.length +
+                       reminders.late.length + reminders.inProgress.length +
+                       reminders.needsPayment.length,
+        upcoming: reminders.upcoming.length,
+        atTime: reminders.atTime.length,
+        late: reminders.late.length,
+        inProgress: reminders.inProgress.length,
+        needsPayment: reminders.needsPayment.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching appointment reminders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener recordatorios'
+    });
+  }
+});
+
+// ===================================
+// PATCH /api/appointments/:id/change-state
+// Universal endpoint for changing appointment state
+// Creates audit trail and updates relevant timestamps
+// ===================================
+router.patch('/:id/change-state', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newState, reason, metadata } = req.body;
+    const userId = req.user.id;
+
+    // Validate new state
+    const validStates = ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no-show'];
+    if (!validStates.includes(newState)) {
+      return res.status(400).json({
+        success: false,
+        message: `Estado inválido. Debe ser uno de: ${validStates.join(', ')}`
+      });
+    }
+
+    // Find appointment
+    const appointment = await Appointment.findByPk(id, {
+      include: [
+        { model: Patient, attributes: ['id', 'fullName', 'phone', 'phoneCountryCode'] },
+        { model: Doctor, attributes: ['id', 'fullName'] },
+        { model: Service, attributes: ['id', 'name'] }
+      ]
+    });
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada'
+      });
+    }
+
+    const previousState = appointment.status;
+
+    // Don't allow changing if already in the same state (unless providing a reason for correction)
+    if (previousState === newState && !reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'La cita ya está en ese estado'
+      });
+    }
+
+    // Prepare update data
+    const updateData = {
+      status: newState,
+      stateChangedAt: new Date(),
+      stateChangedBy: userId,
+      stateChangeReason: reason || null
+    };
+
+    // Update specific audit fields based on new state
+    if (newState === 'confirmed') {
+      updateData.confirmedBy = userId;
+      updateData.confirmedAt = new Date();
+    } else if (newState === 'in_progress') {
+      updateData.enteredConsultationAt = new Date();
+      updateData.enteredConsultationBy = userId;
+      // Also mark as arrived if not already
+      if (!appointment.arrivedAt) {
+        updateData.arrivedAt = new Date();
+        updateData.arrivedMarkedBy = userId;
+      }
+    } else if (newState === 'completed') {
+      updateData.completedAt = new Date();
+      updateData.completedBy = userId;
+    } else if (newState === 'cancelled') {
+      updateData.cancelledBy = userId;
+      updateData.cancelledAt = new Date();
+      updateData.cancellationReason = reason || 'Sin motivo especificado';
+    }
+
+    // Update appointment
+    await appointment.update(updateData);
+
+    // Create audit trail entry
+    await AppointmentStateHistory.create({
+      appointmentId: id,
+      previousState,
+      newState,
+      changedBy: userId,
+      reason: reason || null,
+      metadata: metadata || null,
+      timestamp: new Date()
+    });
+
+    // Send WhatsApp notification for certain state changes
+    if (newState === 'confirmed') {
+      sendWhatsAppNotification(appointment, 'confirmation');
+    } else if (newState === 'cancelled') {
+      sendWhatsAppNotification(appointment, 'cancellation');
+    }
+
+    res.json({
+      success: true,
+      message: `Estado cambiado de "${previousState}" a "${newState}"`,
+      data: {
+        appointmentId: appointment.id,
+        previousState,
+        newState,
+        changedAt: updateData.stateChangedAt,
+        changedBy: userId
+      }
+    });
+
+  } catch (error) {
+    console.error('Error changing appointment state:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al cambiar el estado de la cita'
+    });
+  }
+});
+
+// ===================================
+// PATCH /api/appointments/:id/mark-arrived
+// Quick action: Mark patient as arrived (but not yet in consultation)
+// ===================================
+router.patch('/:id/mark-arrived', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const appointment = await Appointment.findByPk(id);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada'
+      });
+    }
+
+    if (appointment.status !== 'confirmed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se pueden marcar como llegado las citas confirmadas'
+      });
+    }
+
+    // Update arrival time
+    await appointment.update({
+      arrivedAt: new Date(),
+      arrivedMarkedBy: userId
+    });
+
+    res.json({
+      success: true,
+      message: 'Paciente marcado como llegado',
+      data: {
+        appointmentId: appointment.id,
+        arrivedAt: appointment.arrivedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Error marking patient as arrived:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al marcar llegada del paciente'
+    });
+  }
+});
+
+// ===================================
+// PATCH /api/appointments/:id/record-balance
+// Record remaining balance payment for an appointment
+// ===================================
+router.patch('/:id/record-balance', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amountPaid, paymentMethod, notes } = req.body;
+    const userId = req.userId;
+
+    // Find appointment's payment
+    const payment = await Payment.findOne({
+      where: { appointmentId: id }
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pago no encontrado para esta cita'
+      });
+    }
+
+    if (payment.status !== 'approved') {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se puede registrar balance en pagos aprobados'
+      });
+    }
+
+    if (payment.remainingBalance === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Este pago ya está completamente pagado'
+      });
+    }
+
+    if (parseFloat(amountPaid) > parseFloat(payment.remainingBalance)) {
+      return res.status(400).json({
+        success: false,
+        message: 'El monto pagado excede el saldo pendiente'
+      });
+    }
+
+    // Update remaining balance
+    const newBalance = parseFloat(payment.remainingBalance) - parseFloat(amountPaid);
+
+    await payment.update({
+      remainingBalance: newBalance,
+      notes: notes ? `${payment.notes || ''}\n${notes}` : payment.notes
+    });
+
+    // Log the balance payment
+    await PaymentApprovalLog.create({
+      paymentId: payment.id,
+      action: 'updated',
+      userId,
+      notes: `Balance pagado: $${amountPaid} (${paymentMethod}). Saldo restante: $${newBalance}`,
+      metadata: {
+        amountPaid: parseFloat(amountPaid),
+        paymentMethod,
+        previousBalance: parseFloat(payment.remainingBalance),
+        newBalance
+      },
+      timestamp: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Balance registrado exitosamente',
+      data: payment
+    });
+  } catch (error) {
+    console.error('Error recording balance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al registrar el balance',
+      error: error.message
+    });
+  }
+});
+
+// ===================================
+// GET /api/appointments/:id/history
+// Get state change history for an appointment
+// ===================================
+router.get('/:id/history', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if appointment exists
+    const appointment = await Appointment.findByPk(id);
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cita no encontrada'
+      });
+    }
+
+    // Get state history
+    const history = await AppointmentStateHistory.findAll({
+      where: { appointmentId: id },
+      include: [
+        {
+          model: User,
+          as: 'changer',
+          attributes: ['id', 'fullName', 'username', 'role']
+        }
+      ],
+      order: [['timestamp', 'DESC']]
+    });
+
+    res.json({
+      success: true,
+      data: {
+        appointmentId: id,
+        currentState: appointment.status,
+        history
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching appointment history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al obtener el historial de la cita'
+    });
   }
 });
 

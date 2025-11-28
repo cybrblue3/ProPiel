@@ -25,8 +25,6 @@ import {
 } from '@mui/material';
 import {
   Visibility as ViewIcon,
-  NoteAdd as NotesIcon,
-  CheckCircle as CompleteIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   AccessTime as TimeIcon,
@@ -68,17 +66,7 @@ const DoctorDashboard = () => {
 
   // Dialogs
   const [patientDialog, setPatientDialog] = useState(false);
-  const [notesDialog, setNotesDialog] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-
-  // Medical notes form
-  const [medicalNotes, setMedicalNotes] = useState({
-    diagnosis: '',
-    treatment: '',
-    prescriptions: '',
-    notes: '',
-    markAsCompleted: false
-  });
 
   useEffect(() => {
     loadTodayAppointments();
@@ -145,81 +133,6 @@ const DoctorDashboard = () => {
       console.error('Error loading patient details:', err);
       setError('Error al cargar datos del paciente');
     }
-  };
-
-  const handleOpenNotes = (appointment) => {
-    setSelectedAppointment(appointment);
-    setMedicalNotes({
-      diagnosis: appointment.diagnosis || '',
-      treatment: appointment.treatment || '',
-      prescriptions: appointment.prescriptions || '',
-      notes: appointment.medicalNotes || '',
-      markAsCompleted: false
-    });
-    setNotesDialog(true);
-  };
-
-  const handleSaveNotes = async () => {
-    try {
-      setError('');
-      setSuccess('');
-
-      const updateData = {
-        diagnosis: medicalNotes.diagnosis,
-        treatment: medicalNotes.treatment,
-        prescriptions: medicalNotes.prescriptions,
-        medicalNotes: medicalNotes.notes
-      };
-
-      // If marking as completed, include status update
-      if (medicalNotes.markAsCompleted) {
-        updateData.status = 'completed';
-      }
-
-      await axios.put(
-        `${API_URL}/appointments/${selectedAppointment.id}/medical-notes`,
-        updateData,
-        { headers: getAuthHeader() }
-      );
-
-      setSuccess('Notas médicas guardadas exitosamente');
-      setNotesDialog(false);
-      loadTodayAppointments();
-      resetNotesForm();
-    } catch (err) {
-      console.error('Error saving medical notes:', err);
-      setError(err.response?.data?.message || 'Error al guardar notas médicas');
-    }
-  };
-
-  const handleCompleteAppointment = async (appointmentId) => {
-    try {
-      setError('');
-      setSuccess('');
-
-      await axios.patch(
-        `${API_URL}/appointments/${appointmentId}/complete`,
-        {},
-        { headers: getAuthHeader() }
-      );
-
-      setSuccess('Cita marcada como completada');
-      loadTodayAppointments();
-    } catch (err) {
-      console.error('Error completing appointment:', err);
-      setError('Error al completar la cita');
-    }
-  };
-
-  const resetNotesForm = () => {
-    setMedicalNotes({
-      diagnosis: '',
-      treatment: '',
-      prescriptions: '',
-      notes: '',
-      markAsCompleted: false
-    });
-    setSelectedAppointment(null);
   };
 
   const getStatusColor = (status) => {
@@ -351,22 +264,6 @@ const DoctorDashboard = () => {
                       >
                         <HistoryIcon />
                       </IconButton>
-                      <IconButton
-                        color="info"
-                        onClick={() => handleOpenNotes(appointment)}
-                        title="Notas médicas"
-                      >
-                        <NotesIcon />
-                      </IconButton>
-                      {appointment.status !== 'completed' && (
-                        <IconButton
-                          color="success"
-                          onClick={() => handleCompleteAppointment(appointment.id)}
-                          title="Marcar como completada"
-                        >
-                          <CompleteIcon />
-                        </IconButton>
-                      )}
                     </Box>
                   </Box>
                 </CardContent>
@@ -378,136 +275,76 @@ const DoctorDashboard = () => {
 
       {/* Patient Details Dialog */}
       <Dialog open={patientDialog} onClose={() => setPatientDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Información del Paciente</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', pb: 2 }}>
+          Información del Paciente
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
           {selectedAppointment && selectedAppointment.Patient && (
-            <Box sx={{ mt: 2 }}>
-              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                <Typography variant="h6" gutterBottom>
+            <Box>
+              <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                   Datos Personales
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
-                    <Typography><strong>Nombre:</strong> {selectedAppointment.Patient.fullName}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PersonIcon fontSize="small" color="action" />
+                      <Typography variant="body2"><strong>Nombre:</strong> {selectedAppointment.Patient.fullName}</Typography>
+                    </Box>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography><strong>Fecha de Nacimiento:</strong> {selectedAppointment.Patient.birthDate || 'N/A'}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CalendarIcon fontSize="small" color="action" />
+                      <Typography variant="body2"><strong>Fecha de Nacimiento:</strong> {selectedAppointment.Patient.birthDate || 'N/A'}</Typography>
+                    </Box>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography><strong>Teléfono:</strong> {selectedAppointment.Patient.phone}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PhoneIcon fontSize="small" color="action" />
+                      <Typography variant="body2"><strong>Teléfono:</strong> {selectedAppointment.Patient.phone}</Typography>
+                    </Box>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography><strong>Email:</strong> {selectedAppointment.Patient.email || 'N/A'}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EmailIcon fontSize="small" color="action" />
+                      <Typography variant="body2"><strong>Email:</strong> {selectedAppointment.Patient.email || 'N/A'}</Typography>
+                    </Box>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography><strong>Tipo de Sangre:</strong> {selectedAppointment.Patient.bloodType || 'N/A'}</Typography>
+                    <Typography variant="body2"><strong>Tipo de Sangre:</strong> {selectedAppointment.Patient.bloodType || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography><strong>Sexo:</strong> {selectedAppointment.Patient.gender === 'female' ? 'Femenino' : 'Masculino'}</Typography>
+                    <Typography variant="body2"><strong>Sexo:</strong> {selectedAppointment.Patient.gender === 'female' ? 'Femenino' : 'Masculino'}</Typography>
                   </Grid>
                   {selectedAppointment.Patient.allergies && (
                     <Grid item xs={12}>
-                      <Typography color="error.main"><strong>Alergias:</strong> {selectedAppointment.Patient.allergies}</Typography>
+                      <Typography variant="body2" color="error.main"><strong>⚠️ Alergias:</strong> {selectedAppointment.Patient.allergies}</Typography>
                     </Grid>
                   )}
                   {selectedAppointment.Patient.notes && (
                     <Grid item xs={12}>
-                      <Typography><strong>Notas:</strong> {selectedAppointment.Patient.notes}</Typography>
+                      <Typography variant="body2"><strong>Notas:</strong> {selectedAppointment.Patient.notes}</Typography>
                     </Grid>
                   )}
                 </Grid>
               </Paper>
 
-              <Paper variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="h6" gutterBottom>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
+                <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                   Cita Actual
                 </Typography>
-                <Typography><strong>Servicio:</strong> {selectedAppointment.Service?.name}</Typography>
-                <Typography><strong>Fecha:</strong> {formatDate(selectedAppointment.appointmentDate)}</Typography>
-                <Typography><strong>Hora:</strong> {selectedAppointment.appointmentTime}</Typography>
+                <Typography variant="body2"><strong>Servicio:</strong> {selectedAppointment.Service?.name}</Typography>
+                <Typography variant="body2"><strong>Fecha:</strong> {formatDate(selectedAppointment.appointmentDate)}</Typography>
+                <Typography variant="body2"><strong>Hora:</strong> {selectedAppointment.appointmentTime}</Typography>
                 {selectedAppointment.notes && (
-                  <Typography><strong>Motivo:</strong> {selectedAppointment.notes}</Typography>
+                  <Typography variant="body2"><strong>Motivo:</strong> {selectedAppointment.notes}</Typography>
                 )}
               </Paper>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPatientDialog(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Medical Notes Dialog */}
-      <Dialog open={notesDialog} onClose={() => setNotesDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Notas Médicas - {selectedAppointment?.Patient?.fullName}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Diagnóstico"
-                multiline
-                rows={2}
-                value={medicalNotes.diagnosis}
-                onChange={(e) => setMedicalNotes({ ...medicalNotes, diagnosis: e.target.value })}
-                placeholder="Diagnóstico del paciente..."
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Tratamiento"
-                multiline
-                rows={2}
-                value={medicalNotes.treatment}
-                onChange={(e) => setMedicalNotes({ ...medicalNotes, treatment: e.target.value })}
-                placeholder="Tratamiento recomendado..."
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Prescripciones / Medicamentos"
-                multiline
-                rows={3}
-                value={medicalNotes.prescriptions}
-                onChange={(e) => setMedicalNotes({ ...medicalNotes, prescriptions: e.target.value })}
-                placeholder="Medicamentos recetados, dosis, etc..."
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Notas Adicionales"
-                multiline
-                rows={3}
-                value={medicalNotes.notes}
-                onChange={(e) => setMedicalNotes({ ...medicalNotes, notes: e.target.value })}
-                placeholder="Observaciones, indicaciones, próximos pasos..."
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <input
-                  type="checkbox"
-                  checked={medicalNotes.markAsCompleted}
-                  onChange={(e) => setMedicalNotes({ ...medicalNotes, markAsCompleted: e.target.checked })}
-                  id="markCompleted"
-                />
-                <label htmlFor="markCompleted">
-                  <Typography variant="body2">
-                    Marcar cita como completada al guardar
-                  </Typography>
-                </label>
-              </Box>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setNotesDialog(false)}>Cancelar</Button>
-          <Button onClick={handleSaveNotes} variant="contained">
-            Guardar Notas
-          </Button>
+        <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
+          <Button onClick={() => setPatientDialog(false)} variant="contained">Cerrar</Button>
         </DialogActions>
       </Dialog>
     </Box>
