@@ -19,6 +19,34 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+// ===================================
+// TEMPORARY: Seed database endpoint (NO AUTH - DELETE AFTER USE!)
+// GET /api/admin/seed-db?secret=SEED_NOW_2024
+// ===================================
+router.get('/seed-db', async (req, res) => {
+  try {
+    if (req.query.secret !== 'SEED_NOW_2024') {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const seedDatabase = require('../utils/seed');
+    await seedDatabase();
+
+    res.json({
+      success: true,
+      message: '✅ Database seeded successfully!',
+      warning: 'DELETE THIS ENDPOINT NOW from adminRoutes.js!'
+    });
+  } catch (error) {
+    console.error('Seed error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error seeding database',
+      error: error.message
+    });
+  }
+});
+
 // Apply auth middleware to all admin routes
 router.use(auth);
 router.use(adminOnly);
@@ -1184,34 +1212,6 @@ router.get('/reports/best-months', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error al obtener mejores meses',
-      error: error.message
-    });
-  }
-});
-
-// ===================================
-// TEMPORARY: Seed database endpoint (DELETE AFTER USE!)
-// GET /api/admin/seed-db?secret=SEED_NOW_2024
-// ===================================
-router.get('/seed-db', async (req, res) => {
-  try {
-    if (req.query.secret !== 'SEED_NOW_2024') {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
-
-    const seedDatabase = require('../utils/seed');
-    await seedDatabase();
-
-    res.json({
-      success: true,
-      message: '✅ Database seeded successfully!',
-      warning: 'DELETE THIS ENDPOINT NOW from adminRoutes.js!'
-    });
-  } catch (error) {
-    console.error('Seed error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error seeding database',
       error: error.message
     });
   }
