@@ -498,10 +498,17 @@ const seedDatabase = async () => {
     console.log('6. María García    - 2:00 PM              - PENDING');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-    process.exit(0);
+    // Only exit if run directly, not when imported
+    if (require.main === module) {
+      process.exit(0);
+    }
   } catch (error) {
     console.error('❌ Error seeding database:', error);
-    process.exit(1);
+    // Only exit if run directly, not when imported
+    if (require.main === module) {
+      process.exit(1);
+    }
+    throw error; // Re-throw so the endpoint can catch it
   }
 };
 
