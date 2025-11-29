@@ -505,4 +505,10 @@ const seedDatabase = async () => {
   }
 };
 
-seedDatabase();
+// Export for use as module
+module.exports = seedDatabase;
+
+// Run if called directly
+if (require.main === module) {
+  seedDatabase();
+}
