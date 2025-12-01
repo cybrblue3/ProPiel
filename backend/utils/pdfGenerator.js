@@ -214,18 +214,22 @@ async function generateConsentPDF(appointmentData, signatureImagePath, outputPdf
         })}`)
         .moveDown(1.5);
 
-      // Footer
-      doc
-        .fontSize(8)
-        .font('Helvetica')
-        .fillColor('#999999')
-        .text(
-          'Este documento ha sido generado electronicamente y contiene una firma digital valida. ' +
-          'Clinica ProPiel - Sistema de Reservas en Linea',
-          50,
-          doc.page.height - 40,
-          { align: 'center', width: 512 }
-        );
+      // Footer - use buffered pages approach to avoid extra pages
+      const pages = doc.bufferedPageRange();
+      for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor('#999999')
+          .text(
+            'Este documento ha sido generado electronicamente y contiene una firma digital valida. ' +
+            'Clinica ProPiel - Sistema de Reservas en Linea',
+            50,
+            doc.page.height - 40,
+            { align: 'center', width: 512 }
+          );
+      }
 
       // Finalize the PDF
       doc.end();

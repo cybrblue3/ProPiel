@@ -78,12 +78,13 @@ const getAvailableSlots = async (serviceId, appointmentDate) => {
       const slots = generateSlotsFromSchedule(schedule);
 
       // Get booked appointments for this doctor/date
+      // All statuses except 'cancelled' block the slot
       const bookedAppointments = await Appointment.findAll({
         where: {
           doctorId,
           appointmentDate,
           status: {
-            [Op.in]: ['pending', 'confirmed']
+            [Op.in]: ['pending', 'confirmed', 'en_consulta', 'completada', 'no_show']
           }
         },
         attributes: ['appointmentTime']
@@ -213,13 +214,14 @@ const isSlotAvailable = async (serviceId, doctorId, appointmentDate, appointment
     }
 
     // Check for existing appointments
+    // All statuses except 'cancelled' block the slot
     const existingAppointment = await Appointment.findOne({
       where: {
         doctorId,
         appointmentDate,
         appointmentTime,
         status: {
-          [Op.in]: ['pending', 'confirmed']
+          [Op.in]: ['pending', 'confirmed', 'en_consulta', 'completada', 'no_show']
         }
       }
     });

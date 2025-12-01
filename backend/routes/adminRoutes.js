@@ -35,7 +35,13 @@ router.get('/appointments', async (req, res) => {
     const where = {};
 
     if (status) {
-      where.status = status;
+      // Support multiple statuses separated by comma
+      if (status.includes(',')) {
+        const statuses = status.split(',').map(s => s.trim());
+        where.status = { [Op.in]: statuses };
+      } else {
+        where.status = status;
+      }
     }
 
     if (date) {

@@ -97,6 +97,7 @@ const DoctorDashboard = () => {
 
   const filterAppointments = () => {
     let filtered = [...appointments];
+    const todayStr = new Date().toISOString().split('T')[0];
 
     switch (tabValue) {
       case 0: // Todas
@@ -104,11 +105,14 @@ const DoctorDashboard = () => {
       case 1: // Confirmadas
         filtered = filtered.filter(apt => apt.status === 'confirmed');
         break;
-      case 2: // Completadas
-        filtered = filtered.filter(apt => apt.status === 'completed');
+      case 2: // Citas de Hoy
+        filtered = filtered.filter(apt =>
+          apt.appointmentDate === todayStr &&
+          (apt.status === 'confirmed' || apt.status === 'en_consulta' || apt.status === 'completada')
+        );
         break;
-      case 3: // Pendientes
-        filtered = filtered.filter(apt => apt.status === 'pending');
+      case 3: // Completadas
+        filtered = filtered.filter(apt => apt.status === 'completada');
         break;
       default:
         break;
@@ -139,12 +143,16 @@ const DoctorDashboard = () => {
     switch (status) {
       case 'confirmed':
         return 'success';
-      case 'completed':
+      case 'completada':
         return 'info';
+      case 'en_consulta':
+        return 'primary';
       case 'pending':
         return 'warning';
       case 'cancelled':
         return 'error';
+      case 'no_show':
+        return 'default';
       default:
         return 'default';
     }
@@ -154,12 +162,16 @@ const DoctorDashboard = () => {
     switch (status) {
       case 'confirmed':
         return 'Confirmada';
-      case 'completed':
+      case 'completada':
         return 'Completada';
+      case 'en_consulta':
+        return 'En Consulta';
       case 'pending':
         return 'Pendiente';
       case 'cancelled':
         return 'Cancelada';
+      case 'no_show':
+        return 'No Asistió';
       default:
         return status;
     }
@@ -184,8 +196,14 @@ const DoctorDashboard = () => {
         <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
           <Tab label={`Todas (${appointments.length})`} />
           <Tab label={`Confirmadas (${appointments.filter(a => a.status === 'confirmed').length})`} />
-          <Tab label={`Completadas (${appointments.filter(a => a.status === 'completed').length})`} />
-          <Tab label={`Pendientes (${appointments.filter(a => a.status === 'pending').length})`} />
+          <Tab label={`Citas de Hoy (${(() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            return appointments.filter(a =>
+              a.appointmentDate === todayStr &&
+              (a.status === 'confirmed' || a.status === 'en_consulta' || a.status === 'completada')
+            ).length;
+          })()})`} />
+          <Tab label={`Completadas (${appointments.filter(a => a.status === 'completada').length})`} />
         </Tabs>
       </Card>
 

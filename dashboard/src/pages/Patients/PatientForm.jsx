@@ -12,6 +12,11 @@ import {
   Alert
 } from '@mui/material';
 import { Save as SaveIcon, ArrowBack as BackIcon } from '@mui/icons-material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
+import 'dayjs/locale/es';
 import { patientsAPI } from '../../services/api';
 
 const PatientForm = () => {
@@ -166,16 +171,26 @@ const PatientForm = () => {
             </Grid>
 
             <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                label="Fecha de Nacimiento *"
-                name="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-                required
-              />
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
+                <DatePicker
+                  label="Fecha de Nacimiento *"
+                  value={formData.birthDate ? dayjs(formData.birthDate) : null}
+                  onChange={(newValue) => {
+                    const formattedDate = newValue ? newValue.format('YYYY-MM-DD') : '';
+                    setFormData({ ...formData, birthDate: formattedDate });
+                    setError('');
+                  }}
+                  maxDate={dayjs()}
+                  minDate={dayjs().subtract(120, 'year')}
+                  defaultCalendarMonth={dayjs().subtract(25, 'year')}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true
+                    }
+                  }}
+                />
+              </LocalizationProvider>
             </Grid>
 
             <Grid item xs={12} md={3}>

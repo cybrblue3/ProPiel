@@ -141,6 +141,7 @@ const Appointments = () => {
   // Completion verification dialog
   const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
   const [balancePaymentMethod, setBalancePaymentMethod] = useState('cash'); // cash or transfer
+  const [balancePaymentProof, setBalancePaymentProof] = useState(null); // File for transfer proof
 
   // Get today's date in YYYY-MM-DD format
   const getTodayDate = () => {
@@ -177,6 +178,7 @@ const Appointments = () => {
         params.status = 'pending';
       } else if (activeTab === 2) {
         params.date = getTodayDate();
+        params.status = 'confirmed,en_consulta';
       } else if (activeTab === 3) {
         params.status = 'confirmed';
       }
@@ -212,8 +214,8 @@ const Appointments = () => {
       const pendingResponse = await adminAPI.getAllAppointments({ status: 'pending', limit: 1 });
       setPendingCount(pendingResponse.data.data.pagination.total);
 
-      // Get today count
-      const todayResponse = await adminAPI.getAllAppointments({ date: getTodayDate(), limit: 1 });
+      // Get today count (confirmed and en_consulta)
+      const todayResponse = await adminAPI.getAllAppointments({ date: getTodayDate(), status: 'confirmed,en_consulta', limit: 1 });
       setTodayCount(todayResponse.data.data.pagination.total);
     } catch (err) {
       console.error('Error loading counts:', err);
@@ -312,11 +314,21 @@ const Appointments = () => {
   const handleCompleteClick = (appointment) => {
     setSelectedAppointment(appointment);
     setBalancePaymentMethod('cash'); // Reset to default
+    setBalancePaymentProof(null); // Reset file upload
     setCompletionDialogOpen(true);
   };
 
   const handleCompleteAppointment = async () => {
     if (!selectedAppointment) return;
+
+    // Validate file upload for transferencia
+    if (selectedAppointment.Payment &&
+        parseFloat(selectedAppointment.Payment.remainingBalance) > 0 &&
+        balancePaymentMethod === 'transfer' &&
+        !balancePaymentProof) {
+      setError('Por favor carga el comprobante de transferencia');
+      return;
+    }
 
     try {
       setActionLoading(true);
@@ -329,11 +341,22 @@ const Appointments = () => {
 
       // If there's a remaining balance, record it as paid
       if (selectedAppointment.Payment && parseFloat(selectedAppointment.Payment.remainingBalance) > 0) {
-        await appointmentsAPI.recordBalancePayment(selectedAppointment.id, {
-          amountPaid: selectedAppointment.Payment.remainingBalance,
-          paymentMethod: balancePaymentMethod,
-          notes: `Saldo pagado al finalizar la consulta (${balancePaymentMethod === 'cash' ? 'Efectivo' : 'Transferencia'})`
-        });
+        // Use FormData if file is uploaded, otherwise use JSON
+        if (balancePaymentMethod === 'transfer' && balancePaymentProof) {
+          const formData = new FormData();
+          formData.append('amountPaid', selectedAppointment.Payment.remainingBalance);
+          formData.append('paymentMethod', balancePaymentMethod);
+          formData.append('notes', `Saldo pagado al finalizar la consulta (Transferencia)`);
+          formData.append('paymentProof', balancePaymentProof);
+
+          await appointmentsAPI.recordBalancePayment(selectedAppointment.id, formData);
+        } else {
+          await appointmentsAPI.recordBalancePayment(selectedAppointment.id, {
+            amountPaid: selectedAppointment.Payment.remainingBalance,
+            paymentMethod: balancePaymentMethod,
+            notes: `Saldo pagado al finalizar la consulta (${balancePaymentMethod === 'cash' ? 'Efectivo' : 'Transferencia'})`
+          });
+        }
       }
 
       setSuccessMessage('Cita completada exitosamente. Pago verificado.');
@@ -640,7 +663,7 @@ const Appointments = () => {
       );
     }
 
-    if (appointment.status === 'pending' || appointment.status === 'confirmed') {
+    if (appointment.status === 'pending') {
       actions.push(
         <Tooltip key="cancel" title="Cancelar">
           <IconButton
@@ -1091,7 +1114,6 @@ const Appointments = () => {
                   <TableCell>Servicio</TableCell>
                   <TableCell>Fecha/Hora</TableCell>
                   <TableCell>Doctor</TableCell>
-                  <TableCell>Comprobante</TableCell>
                   <TableCell>Estado</TableCell>
                   <TableCell align="right">Acciones</TableCell>
                 </TableRow>
@@ -1099,7 +1121,7 @@ const Appointments = () => {
               <TableBody>
                 {appointments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
                         No se encontraron citas
                       </Typography>
@@ -1144,20 +1166,6 @@ const Appointments = () => {
                         </Box>
                       </TableCell>
                       <TableCell>{appointment.Doctor?.fullName}</TableCell>
-                      <TableCell>
-                        {appointment.PaymentProof ? (
-                          <Chip
-                            icon={<AttachIcon />}
-                            label="Ver"
-                            size="small"
-                            color="success"
-                            variant="outlined"
-                            onClick={() => handleViewDetails(appointment.id)}
-                          />
-                        ) : (
-                          <Chip label="Sin" size="small" color="default" variant="outlined" />
-                        )}
-                      </TableCell>
                       <TableCell>{getStatusChip(appointment.status)}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
@@ -1285,40 +1293,58 @@ const Appointments = () => {
               </Paper>
 
               {/* Payment Proof */}
-              {selectedAppointment.PaymentProof && (
-                <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
-                  <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
-                    Comprobante de Pago
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      p: 2,
-                      bgcolor: 'white',
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: 'grey.300'
-                    }}
-                  >
+              {selectedAppointment.PaymentProof && (() => {
+                const fileUrl = `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${selectedAppointment.PaymentProof.filepath.split('uploads\\').pop().split('uploads/').pop().replace(/\\/g, '/')}`;
+                const isPDF = selectedAppointment.PaymentProof.filepath.toLowerCase().endsWith('.pdf');
+
+                return (
+                  <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', border: '1px solid', borderColor: 'grey.200' }}>
+                    <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
+                      Comprobante de Pago
+                    </Typography>
                     <Box
-                      component="img"
-                      src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}/uploads/${selectedAppointment.PaymentProof.filepath.split('uploads\\').pop().split('uploads/').pop().replace(/\\/g, '/')}`}
-                      alt="Comprobante de pago"
                       sx={{
-                        maxWidth: '100%',
-                        maxHeight: 400,
-                        objectFit: 'contain'
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        p: 2,
+                        bgcolor: 'white',
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'grey.300'
                       }}
-                      onError={(e) => {
-                        console.error('Error loading image:', e.target.src);
-                        e.target.onerror = null;
-                      }}
-                    />
-                  </Box>
-                </Paper>
-              )}
+                    >
+                      {isPDF ? (
+                        <Box
+                          component="embed"
+                          src={fileUrl}
+                          type="application/pdf"
+                          sx={{
+                            width: '100%',
+                            height: 700,
+                            borderRadius: 1
+                          }}
+                        />
+                      ) : (
+                        <Box
+                          component="img"
+                          src={fileUrl}
+                          alt="Comprobante de pago"
+                          sx={{
+                            maxWidth: '100%',
+                            maxHeight: 700,
+                            objectFit: 'contain'
+                          }}
+                          onError={(e) => {
+                            console.error('Error loading image:', e.target.src);
+                            e.target.onerror = null;
+                          }}
+                        />
+                      )}
+                    </Box>
+                  </Paper>
+                );
+              })()}
             </Box>
           )}
         </DialogContent>
@@ -1404,22 +1430,6 @@ const Appointments = () => {
                   {getStatusChip(newState)}
                 </Box>
               </Box>
-
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Nuevo Estado</InputLabel>
-                <Select
-                  value={newState}
-                  label="Nuevo Estado"
-                  onChange={(e) => setNewState(e.target.value)}
-                >
-                  <MenuItem value="pending">Pendiente</MenuItem>
-                  <MenuItem value="confirmed">Confirmada</MenuItem>
-                  <MenuItem value="in_progress">En consulta</MenuItem>
-                  <MenuItem value="completed">Completada</MenuItem>
-                  <MenuItem value="cancelled">Cancelada</MenuItem>
-                  <MenuItem value="no-show">No asistió</MenuItem>
-                </Select>
-              </FormControl>
 
               <TextField
                 fullWidth
@@ -1653,13 +1663,42 @@ const Appointments = () => {
                     <InputLabel>Método de Pago del Saldo</InputLabel>
                     <Select
                       value={balancePaymentMethod}
-                      onChange={(e) => setBalancePaymentMethod(e.target.value)}
+                      onChange={(e) => {
+                        setBalancePaymentMethod(e.target.value);
+                        if (e.target.value === 'cash') {
+                          setBalancePaymentProof(null); // Clear file when switching to cash
+                        }
+                      }}
                       label="Método de Pago del Saldo"
                     >
                       <MenuItem value="cash">💵 Efectivo</MenuItem>
                       <MenuItem value="transfer">🏦 Transferencia</MenuItem>
                     </Select>
                   </FormControl>
+
+                  {/* File Upload for Transferencia */}
+                  {balancePaymentMethod === 'transfer' && (
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        component="label"
+                        fullWidth
+                      >
+                        {balancePaymentProof ? '✅ Comprobante cargado' : '📎 Cargar Comprobante de Transferencia'}
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*,application/pdf"
+                          onChange={(e) => setBalancePaymentProof(e.target.files[0])}
+                        />
+                      </Button>
+                      {balancePaymentProof && (
+                        <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
+                          Archivo: {balancePaymentProof.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
                 </>
               ) : (
                 <Alert severity="success" sx={{ mt: 2 }}>

@@ -19,6 +19,7 @@ const {
 
 // Middleware
 const authenticateToken = require('../middleware/auth');
+const { uploadAdminPaymentProof } = require('../middleware/upload');
 
 // Utils
 const { sendWhatsAppNotification } = require('../utils/whatsapp');
@@ -191,14 +192,27 @@ router.get('/doctor/today', authenticateToken, async (req, res) => {
 
     const todayStr = today.toISOString().split('T')[0];
 
-    // Get appointments
+    // Get appointments: confirmed (future), en_consulta (today), completada (today)
     const appointments = await Appointment.findAll({
       where: {
         doctorId: doctor.id,
-        appointmentDate: todayStr,
-        status: {
-          [Op.in]: ['pending', 'confirmed', 'completed']
-        }
+        [Op.or]: [
+          // Confirmed appointments (any future date including today)
+          {
+            status: 'confirmed',
+            appointmentDate: { [Op.gte]: todayStr }
+          },
+          // En consulta appointments (today only)
+          {
+            status: 'en_consulta',
+            appointmentDate: todayStr
+          },
+          // Completed appointments (today only)
+          {
+            status: 'completada',
+            appointmentDate: todayStr
+          }
+        ]
       },
       include: [
         {
@@ -1227,12 +1241,14 @@ router.patch('/:id/mark-arrived', authenticateToken, async (req, res) => {
 // ===================================
 // PATCH /api/appointments/:id/record-balance
 // Record remaining balance payment for an appointment
+// Supports file upload for transferencia payment method
 // ===================================
-router.patch('/:id/record-balance', authenticateToken, async (req, res) => {
+router.patch('/:id/record-balance', authenticateToken, uploadAdminPaymentProof, async (req, res) => {
   try {
     const { id } = req.params;
     const { amountPaid, paymentMethod, notes } = req.body;
     const userId = req.userId;
+    const uploadedFile = req.file;
 
     // Find appointment's payment
     const payment = await Payment.findOne({
@@ -1289,6 +1305,17 @@ router.patch('/:id/record-balance', authenticateToken, async (req, res) => {
       },
       timestamp: new Date()
     });
+
+    // Create PaymentProof record if file was uploaded (for transferencia)
+    if (uploadedFile && paymentMethod === 'transfer') {
+      await PaymentProof.create({
+        appointmentId: id,
+        filepath: uploadedFile.path,
+        uploadedBy: userId,
+        uploadedAt: new Date(),
+        verified: false
+      });
+    }
 
     res.json({
       success: true,

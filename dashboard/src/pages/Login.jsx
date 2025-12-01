@@ -118,19 +118,6 @@ const Login = () => {
                 {loading ? <CircularProgress size={24} /> : 'Iniciar Sesión'}
               </Button>
             </form>
-
-            {/* Help Text */}
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                <strong>Credenciales de prueba:</strong>
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • Admin: admin / admin123
-              </Typography>
-              <Typography variant="caption" color="text.secondary" display="block">
-                • Doctor: derma / derma123
-              </Typography>
-            </Box>
           </CardContent>
         </Card>
       </Box>
