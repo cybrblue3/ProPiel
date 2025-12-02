@@ -39,7 +39,16 @@ const Navbar = () => {
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
-      <Box sx={{ py: 2 }}>
+      <Box
+        component="a"
+        href={import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000'}
+        sx={{
+          py: 2,
+          display: 'block',
+          cursor: 'pointer',
+          textDecoration: 'none'
+        }}
+      >
         <Logo width={180} />
       </Box>
       <List>
@@ -84,7 +93,16 @@ const Navbar = () => {
             <Toolbar disableGutters>
               {/* Logo */}
               <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ width: { xs: 140, sm: 160, md: 180 } }}>
+                <Box
+                  component="a"
+                  href={import.meta.env.VITE_DASHBOARD_URL || 'http://localhost:3000'}
+                  sx={{
+                    width: { xs: 140, sm: 160, md: 180 },
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    display: 'block'
+                  }}
+                >
                   <Logo width={180} />
                 </Box>
               </Box>
