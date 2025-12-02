@@ -21,7 +21,17 @@
       "Bash(node -p:*)",
       "Bash(node utils/fixConsentColumn.js:*)",
       "Bash(del backendutilsfixConsentColumn.js)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(node resetRailwayDB.js:*)",
+      "Bash(node seedRailwayDB.js:*)",
+      "Bash(node utils/seed.js:*)",
+      "Bash(del resetRailwayDB.js)",
+      "Bash(del seedRailwayDB.js)",
+      "Bash(node:*)",
+      "Bash(npm create:*)",
+      "Bash(if not exist README.md echo.)",
+      "Bash(README.md)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

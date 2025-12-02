@@ -13,10 +13,9 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;
-  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

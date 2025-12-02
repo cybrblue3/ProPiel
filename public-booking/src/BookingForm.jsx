@@ -1471,7 +1471,12 @@ export default function BookingForm() {
               ref={(ref) => setCanvasRef(ref)}
               width={600}
               height={200}
-              style={{ display: 'block', width: '100%', height: 'auto' }}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: 'auto',
+                maxWidth: '600px'
+              }}
             />
           </Box>
           <Button
@@ -1666,10 +1671,10 @@ export default function BookingForm() {
         <Paper
           elevation={8}
           sx={{
-            p: 4,
-            width: '95%',
+            p: { xs: 2, sm: 3, md: 4 },
+            width: { xs: '100%', sm: '95%' },
             maxWidth: '1200px',
-            mx: 2,
+            mx: { xs: 0, sm: 2 },
             position: 'relative',
             backdropFilter: 'blur(10px)',
             background: 'rgba(255, 255, 255, 0.95)'
@@ -1677,14 +1682,35 @@ export default function BookingForm() {
         >
           {/* Logo Header */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-            <Logo width={200} variant="full" />
+            <Box sx={{ width: { xs: 150, sm: 180, md: 200 } }}>
+              <Logo width={200} variant="full" />
+            </Box>
           </Box>
 
-          <Typography variant="h5" gutterBottom align="center" sx={{ color: 'text.secondary', fontWeight: 400 }}>
+          <Typography
+            variant="h5"
+            gutterBottom
+            align="center"
+            sx={{
+              color: 'text.secondary',
+              fontWeight: 400,
+              fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' }
+            }}
+          >
             Sistema de Reservas en Línea
           </Typography>
 
-        <Stepper activeStep={activeStep} sx={{ my: 4 }}>
+        <Stepper
+          activeStep={activeStep}
+          alternativeLabel
+          sx={{
+            my: { xs: 2, md: 4 },
+            '& .MuiStepLabel-label': {
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              mt: { xs: 0.5, sm: 1 }
+            }
+          }}
+        >
           {steps.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
